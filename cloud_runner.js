@@ -24,8 +24,11 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT_DIR = __dirname;
-const STATE_PATH = path.join(ROOT_DIR, "data", "state.json");
-const AUTO_JS_PATH = path.join(ROOT_DIR, "data", "auto_state.js");
+const DATA_DIR = path.join(ROOT_DIR, "data");
+const STATE_PATH = path.join(DATA_DIR, "state.json");
+const AUTO_JS_PATH = path.join(DATA_DIR, "auto_state.js");
+const ROOT_STATE_PATH = path.join(ROOT_DIR, "state.json");
+const ROOT_AUTO_JS_PATH = path.join(ROOT_DIR, "auto_state.js");
 
 const DEFAULT_KEYS = {
     the_odds_api_key: process.env.THE_ODDS_API_KEY || "5d4a4c02c56ffbb5e242a8056b7a6268",
@@ -638,6 +641,11 @@ async function main() {
             const loaded = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
             state = { ...state, ...loaded, settings: { ...state.settings, ...(loaded.settings || {}) } };
         } catch (e) {}
+    } else if (fs.existsSync(ROOT_STATE_PATH)) {
+        try {
+            const loaded = JSON.parse(fs.readFileSync(ROOT_STATE_PATH, "utf8"));
+            state = { ...state, ...loaded, settings: { ...state.settings, ...(loaded.settings || {}) } };
+        } catch (e) {}
     }
 
     // Biztosítjuk, hogy az API kulcsok mindig ki legyenek töltve
@@ -779,9 +787,13 @@ async function main() {
         }
     }
 
+    fs.mkdirSync(DATA_DIR, { recursive: true });
     const jsonOut = JSON.stringify(state, null, 2);
+    const autoJsOut = `window.__AUTO_DISK_STATE__ = ${jsonOut};\n`;
     fs.writeFileSync(STATE_PATH, jsonOut, "utf8");
-    fs.writeFileSync(AUTO_JS_PATH, `window.__AUTO_DISK_STATE__ = ${jsonOut};\n`, "utf8");
+    fs.writeFileSync(AUTO_JS_PATH, autoJsOut, "utf8");
+    fs.writeFileSync(ROOT_STATE_PATH, jsonOut, "utf8");
+    fs.writeFileSync(ROOT_AUTO_JS_PATH, autoJsOut, "utf8");
 }
 
 main().catch(err => {
