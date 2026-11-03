@@ -128,10 +128,12 @@ async function fetchFinishedScores(oddsKey, fdKey) {
         "soccer_uefa_champs_league",
         "soccer_uefa_europa_league",
         "soccer_epl",
+        "soccer_efl_cup",
         "soccer_spain_la_liga",
         "soccer_germany_bundesliga",
         "soccer_italy_serie_a",
-        "soccer_france_ligue_one"
+        "soccer_france_ligue_one",
+        "soccer_uefa_nations_league"
     ];
 
     if (oddsKey) {
@@ -409,16 +411,30 @@ function dixonColesTau(hg, ag, lamH, lamA, rho) {
 }
 
 async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
-    const leagues = [
+    const allAllowedLeagues = [
         { key: "soccer_uefa_champs_league", title: "Bajnokok Ligája" },
         { key: "soccer_uefa_europa_league", title: "Európa Liga" },
         { key: "soccer_epl", title: "Premier League" },
+        { key: "soccer_efl_cup", title: "EFL Cup" },
         { key: "soccer_spain_la_liga", title: "La Liga" },
-        { key: "soccer_germany_bundesliga", title: "Bundesliga" },
         { key: "soccer_italy_serie_a", title: "Serie A" },
+        { key: "soccer_germany_bundesliga", title: "Bundesliga" },
         { key: "soccer_france_ligue_one", title: "Ligue 1" },
-        { key: "soccer_netherlands_eredivisie", title: "Eredivisie" }
+        { key: "soccer_uefa_nations_league", title: "Nemzetek Ligája" },
+        { key: "soccer_uefa_european_championship", title: "Európa-bajnokság (EB)" },
+        { key: "soccer_uefa_euro_qualification", title: "Európa-bajnokság (EB)" },
+        { key: "soccer_fifa_world_cup", title: "Világbajnokság (VB)" },
+        { key: "soccer_fifa_world_cup_qualifiers_europe", title: "Világbajnokság (VB)" }
     ];
+
+    let activeKeys = null;
+    const spList = await fetchJsonSafe(`https://api.the-odds-api.com/v4/sports?apiKey=${oddsKey}`);
+    if (Array.isArray(spList)) {
+        activeKeys = new Set(spList.filter(s => s && s.active).map(s => s.key));
+    }
+    const leagues = activeKeys
+        ? allAllowedLeagues.filter(lg => activeKeys.has(lg.key))
+        : allAllowedLeagues.slice(0, 9);
 
     const near = [];
     const later = [];
@@ -506,7 +522,10 @@ async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
 
     near.sort((a, b) => a.commence_iso.localeCompare(b.commence_iso));
     later.sort((a, b) => a.commence_iso.localeCompare(b.commence_iso));
-    return [...near, ...later].slice(0, 18);
+    if (near.length >= 3) {
+        return near.slice(0, 18);
+    }
+    return [...near, ...later].slice(0, 16);
 }
 
 async function fetchPrematchInjuriesMap(afKey, todayStr) {

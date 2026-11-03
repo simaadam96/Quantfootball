@@ -875,9 +875,104 @@ const TEAM_DB = {
     "Red Star": { npxg: 1.32, npxga: 1.56, xg_per_shot: 0.105, box_touches: 20.4, ppda: 12.1, field_tilt: 45.5, elo: 1665 },
     "Young Boys": { npxg: 1.30, npxga: 1.58, xg_per_shot: 0.104, box_touches: 20.2, ppda: 12.0, field_tilt: 45.0, elo: 1655 },
     "Slovan Bratislava": { npxg: 1.04, npxga: 1.82, xg_per_shot: 0.097, box_touches: 16.8, ppda: 13.6, field_tilt: 39.5, elo: 1590 },
-    "Ferencvárosi TC": { npxg: 1.94, npxga: 0.82, xg_per_shot: 0.129, box_touches: 33.4, ppda: 8.5, field_tilt: 64.2, elo: 1735 },
-    "Kecskeméti TE": { npxg: 0.96, npxga: 1.64, xg_per_shot: 0.095, box_touches: 16.1, ppda: 13.9, field_tilt: 39.5, elo: 1540 }
+    // Válogatottak (VB, EB, Nemzetek Ligája)
+    "Spain": { npxg: 2.18, npxga: 0.78, xg_per_shot: 0.133, box_touches: 36.4, ppda: 8.1, field_tilt: 66.5, elo: 2050 },
+    "France": { npxg: 2.06, npxga: 0.80, xg_per_shot: 0.130, box_touches: 34.8, ppda: 8.8, field_tilt: 62.5, elo: 2030 },
+    "England": { npxg: 1.96, npxga: 0.82, xg_per_shot: 0.128, box_touches: 33.0, ppda: 8.9, field_tilt: 61.8, elo: 2010 },
+    "Germany": { npxg: 2.08, npxga: 0.90, xg_per_shot: 0.131, box_touches: 35.2, ppda: 8.3, field_tilt: 64.0, elo: 1995 },
+    "Portugal": { npxg: 2.04, npxga: 0.86, xg_per_shot: 0.129, box_touches: 34.5, ppda: 8.5, field_tilt: 63.5, elo: 1990 },
+    "Netherlands": { npxg: 1.88, npxga: 0.94, xg_per_shot: 0.124, box_touches: 31.2, ppda: 9.0, field_tilt: 59.5, elo: 1955 },
+    "Italy": { npxg: 1.78, npxga: 0.88, xg_per_shot: 0.121, box_touches: 29.5, ppda: 9.2, field_tilt: 58.0, elo: 1945 },
+    "Belgium": { npxg: 1.82, npxga: 1.04, xg_per_shot: 0.122, box_touches: 30.2, ppda: 9.5, field_tilt: 58.5, elo: 1915 },
+    "Croatia": { npxg: 1.66, npxga: 1.02, xg_per_shot: 0.118, box_touches: 27.4, ppda: 10.1, field_tilt: 55.8, elo: 1895 },
+    "Switzerland": { npxg: 1.62, npxga: 1.06, xg_per_shot: 0.117, box_touches: 26.5, ppda: 9.9, field_tilt: 54.5, elo: 1880 },
+    "Austria": { npxg: 1.72, npxga: 1.08, xg_per_shot: 0.121, box_touches: 28.4, ppda: 8.4, field_tilt: 56.2, elo: 1875 },
+    "Denmark": { npxg: 1.60, npxga: 1.04, xg_per_shot: 0.116, box_touches: 26.2, ppda: 9.8, field_tilt: 54.8, elo: 1865 },
+    "Hungary": { npxg: 1.44, npxga: 1.18, xg_per_shot: 0.114, box_touches: 22.8, ppda: 11.2, field_tilt: 48.5, elo: 1820 },
+    "Magyarország": { npxg: 1.44, npxga: 1.18, xg_per_shot: 0.114, box_touches: 22.8, ppda: 11.2, field_tilt: 48.5, elo: 1820 },
+    "Turkey": { npxg: 1.64, npxga: 1.22, xg_per_shot: 0.118, box_touches: 26.8, ppda: 9.7, field_tilt: 54.2, elo: 1835 },
+    "Serbia": { npxg: 1.48, npxga: 1.24, xg_per_shot: 0.113, box_touches: 23.6, ppda: 10.9, field_tilt: 50.5, elo: 1815 },
+    "Argentina": { npxg: 2.16, npxga: 0.72, xg_per_shot: 0.135, box_touches: 35.8, ppda: 8.2, field_tilt: 65.5, elo: 2070 },
+    "Brazil": { npxg: 1.98, npxga: 0.88, xg_per_shot: 0.128, box_touches: 33.4, ppda: 8.7, field_tilt: 62.0, elo: 2005 }
 };
+
+// Szigorú engedélyezett elit liga-fehérlista (Csak: BL, EL, Premier League, EFL Cup, La Liga, Serie A, Bundesliga, Ligue 1, VB, EB, Nemzetek Ligája)
+const ALLOWED_ODDS_API_LEAGUES = [
+    ["soccer_uefa_champs_league", "Bajnokok Ligája"],
+    ["soccer_uefa_europa_league", "Európa Liga"],
+    ["soccer_epl", "Premier League"],
+    ["soccer_efl_cup", "EFL Cup"],
+    ["soccer_spain_la_liga", "La Liga"],
+    ["soccer_italy_serie_a", "Serie A"],
+    ["soccer_germany_bundesliga", "Bundesliga"],
+    ["soccer_france_ligue_one", "Ligue 1"],
+    ["soccer_uefa_nations_league", "Nemzetek Ligája"],
+    ["soccer_uefa_european_championship", "Európa-bajnokság (EB)"],
+    ["soccer_uefa_euro_qualification", "Európa-bajnokság (EB)"],
+    ["soccer_fifa_world_cup", "Világbajnokság (VB)"],
+    ["soccer_fifa_world_cup_qualifiers_europe", "Világbajnokság (VB)"]
+];
+
+const ALLOWED_AF_LEAGUE_IDS = {
+    2: "Bajnokok Ligája",
+    3: "Európa Liga",
+    39: "Premier League",
+    48: "EFL Cup",
+    140: "La Liga",
+    135: "Serie A",
+    78: "Bundesliga",
+    61: "Ligue 1",
+    5: "Nemzetek Ligája",
+    4: "Európa-bajnokság (EB)",
+    960: "Európa-bajnokság (EB)",
+    1: "Világbajnokság (VB)",
+    32: "Világbajnokság (VB)"
+};
+
+const ALLOWED_FD_COMP_CODES = {
+    "CL": "Bajnokok Ligája",
+    "EL": "Európa Liga",
+    "PL": "Premier League",
+    "FLC": "EFL Cup",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "BL1": "Bundesliga",
+    "FL1": "Ligue 1",
+    "EC": "Európa-bajnokság (EB)",
+    "WC": "Világbajnokság (VB)"
+};
+
+function isAllowedEliteLeague(leagueName) {
+    if (!leagueName) return false;
+    const low = String(leagueName).toLowerCase();
+    const validKeywords = [
+        "bajnokok ligája", "champions league",
+        "európa liga", "europa league",
+        "premier league",
+        "efl cup", "league cup", "carabao cup",
+        "la liga", "primera division",
+        "serie a",
+        "bundesliga",
+        "ligue 1",
+        "nemzetek ligája", "nations league",
+        "európa-bajnokság", "euro ", "european championship",
+        "világbajnokság", "world cup", "vb-selejtező", "eb-selejtező"
+    ];
+    return validKeywords.some(kw => low.includes(kw));
+}
+
+function runHasForbiddenLeagues(runObj) {
+    if (!runObj || !runObj.recommendation || !Array.isArray(runObj.recommendation.slips)) return false;
+    for (const s of runObj.recommendation.slips) {
+        if (!s || !Array.isArray(s.legs)) continue;
+        for (const l of s.legs) {
+            if (l && l.league && !isAllowedEliteLeague(l.league)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 // Shin (1992, 1993) De-Vigging algoritmus: eltávolítja a fogadóirodai margint és a favorite-longshot torzítást
 function shinDeVig1X2(o1, oX, o2) {
@@ -1539,21 +1634,27 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
     const errors = [];
 
     if (oddsKey) {
-        const leagues = [
-            ["soccer_uefa_champs_league", "Bajnokok Ligája"],
-            ["soccer_uefa_europa_league", "Európa Liga"],
-            ["soccer_epl", "Premier League"],
-            ["soccer_spain_la_liga", "La Liga"],
-            ["soccer_germany_bundesliga", "Bundesliga"],
-            ["soccer_italy_serie_a", "Serie A"],
-            ["soccer_france_ligue_one", "Ligue 1"],
-            ["soccer_netherlands_eredivisie", "Eredivisie"]
-        ];
+        // 0 kvótába kerülő gyors ellenőrzés, mely engedélyezett ligák aktívak jelenleg
+        let activeSportKeys = null;
+        try {
+            const spResp = await fetch(`https://api.the-odds-api.com/v4/sports?apiKey=${encodeURIComponent(oddsKey)}`);
+            if (spResp.ok) {
+                const spList = await spResp.json();
+                if (Array.isArray(spList)) {
+                    activeSportKeys = new Set(spList.filter(s => s && s.active).map(s => s.key));
+                }
+            }
+        } catch (e) {}
+
+        const leaguesToQuery = activeSportKeys
+            ? ALLOWED_ODDS_API_LEAGUES.filter(([k]) => activeSportKeys.has(k))
+            : ALLOWED_ODDS_API_LEAGUES.slice(0, 9);
+
         let remainingQuota = null;
         const candidatePool = [];
         const seenMatchIds = new Set();
 
-        for (const [sportKey, leagueName] of leagues) {
+        for (const [sportKey, leagueName] of leaguesToQuery) {
             try {
                 const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${encodeURIComponent(oddsKey)}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
                 const resp = await fetch(url);
@@ -1578,9 +1679,6 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
                     const aName = ev.away_team || "Vendég";
                     const kickoff = comm.length >= 16 ? `${evDate.slice(5)} ${comm.slice(11, 16)}` : "20:00";
 
-                    // Összes európai fogadóiroda szorzójának feldolgozása:
-                    // - consensusDict: piaci átlag a Shin (1993) de-vigginghez
-                    // - oddsDict: elérhető legjobb (felső kvartilis / top) piaci szorzó az értékfogadáshoz (+EV)
                     const h1List = [], hxList = [], h2List = [], o25List = [], o15List = [];
                     for (const bm of (ev.bookmakers || [])) {
                         for (const mkt of (bm.markets || [])) {
@@ -1623,7 +1721,6 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
                     const shin = shinDeVig1X2(consensusDict["1"] || 2.15, consensusDict["X"] || 3.40, consensusDict["2"] || 3.20);
                     const p1True = shin ? shin.p1 : 0.45;
                     const p2True = shin ? shin.p2 : 0.30;
-                    // Folytonos (nem lépcsőzetes!) erőindex a Shin-féle valódi valószínűségből
                     const hStr = Math.min(1.62, Math.max(0.60, 0.72 + p1True * 1.18));
                     const aStr = Math.min(1.58, Math.max(0.58, 0.68 + p2True * 1.18));
 
@@ -1654,17 +1751,20 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
             .filter(m => !allowedDates.includes(m.date) && m.date >= todayStr)
             .sort((a, b) => (a.commence_time || "").localeCompare(b.commence_time || ""));
 
-        if (primaryMatches.length >= 10) {
+        // Ha van legalább 3 mérkőzés a mai/holnapi napon (pl. BL, EL vagy EFL Cup forduló),
+        // kizárólag azokat használjuk, nem keverünk hozzá 4-5 nappal későbbi hétvégi bajnokikat!
+        if (primaryMatches.length >= 3) {
             liveMatches.push(...primaryMatches.slice(0, 18));
         } else {
             liveMatches.push(...primaryMatches);
-            const needed = 18 - liveMatches.length;
+            const needed = 16 - liveMatches.length;
             if (needed > 0) {
                 liveMatches.push(...secondaryMatches.slice(0, needed));
             }
         }
     }
 
+    // 2. Tartalék: API-Football — SZIGORÚAN csak az engedélyezett elit ligák (ALLOWED_AF_LEAGUE_IDS)!
     if (liveMatches.length === 0 && afKey) {
         for (const targetDate of allowedDates) {
             try {
@@ -1673,25 +1773,32 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
                 });
                 if (resp.ok) {
                     const json = await resp.json();
-                    const list = (json.response || []).slice(0, 15);
-                    for (const item of list) {
+                    const allFixtures = json.response || [];
+                    const filteredFixtures = allFixtures.filter(item => {
+                        const lid = item && item.league && Number(item.league.id);
+                        return Boolean(ALLOWED_AF_LEAGUE_IDS[lid]);
+                    }).slice(0, 18);
+
+                    for (const item of filteredFixtures) {
                         const fix = item.fixture || {};
                         const lg = item.league || {};
+                        const leagueHu = ALLOWED_AF_LEAGUE_IDS[Number(lg.id)];
+                        if (!leagueHu) continue;
                         const tms = item.teams || {};
                         const hName = (tms.home && tms.home.name) || "Hazai";
                         const aName = (tms.away && tms.away.name) || "Vendég";
                         const dtIso = fix.date || "";
-                        const kickoff = dtIso.length >= 16 ? `${targetDate.slice(5)} ${dtIso.slice(11, 16)}` : "19:30";
+                        const kickoff = dtIso.length >= 16 ? `${targetDate.slice(5)} ${dtIso.slice(11, 16)}` : "20:00";
                         liveMatches.push({
                             match_id: `AF_${fix.id || liveMatches.length + 1}`,
                             date: targetDate,
                             kickoff: kickoff,
-                            league: lg.name || "Nemzetközi Liga",
+                            league: leagueHu,
                             home_team: getTeamMetricsForName(hName, 1.14),
                             away_team: getTeamMetricsForName(aName, 0.94),
                             is_neutral_venue: false,
                             provided_odds: {},
-                            data_source: "🟢 ÉLŐ (API-Football)"
+                            data_source: "🟢 ÉLŐ (API-Football • Elit Ligák)"
                         });
                     }
                 }
@@ -1701,7 +1808,8 @@ async function fetchLiveMatchesBrowser(todayStr, tomorrowStr, modeSelection) {
         }
     }
 
-    return { liveMatches, errors };
+    const strictlyFiltered = liveMatches.filter(m => isAllowedEliteLeague(m.league));
+    return { liveMatches: strictlyFiltered, errors };
 }
 
 function evaluateMarketOutcomeClient(marketCode, hg, ag) {
@@ -1726,8 +1834,10 @@ async function fetchFinishedScoresBrowser() {
     const oddsKey = (appState.settings.the_odds_api_key || "").trim();
     if (oddsKey) {
         const leagues = [
-            "soccer_epl", "soccer_spain_la_liga", "soccer_germany_bundesliga",
-            "soccer_italy_serie_a", "soccer_france_ligue_one", "soccer_uefa_champs_league"
+            "soccer_uefa_champs_league", "soccer_uefa_europa_league",
+            "soccer_epl", "soccer_efl_cup", "soccer_spain_la_liga",
+            "soccer_germany_bundesliga", "soccer_italy_serie_a",
+            "soccer_france_ligue_one", "soccer_uefa_nations_league"
         ];
         for (const sp of leagues) {
             try {
@@ -1959,7 +2069,7 @@ function getSimulationMatches(todayStr, tomorrowStr, scenario) {
         { match_id: `${todayStr}_M02`, date: todayStr, kickoff: `${todayStr.slice(5)} 17:30`, league: "Bundesliga", home_team: getTeamMetricsForName("Bayern München"), away_team: getTeamMetricsForName("Bochum"), provided_odds: { "1": 1.24, "X": 6.50, "2": 11.00, "Over 1.5": 1.14, "Over 2.5": 1.44, "Home & Over 1.5": 1.36, "1X & Over 1.5": 1.22, "BTTS (Yes)": 1.98 }, data_source: "Hibrid xG / Understat Modell" },
         { match_id: `${todayStr}_M03`, date: todayStr, kickoff: `${todayStr.slice(5)} 18:30`, league: "Premier League", home_team: getTeamMetricsForName("Arsenal"), away_team: getTeamMetricsForName("Leicester"), provided_odds: { "1": 1.34, "X": 5.20, "2": 8.80, "Over 1.5": 1.22, "Over 2.5": 1.62, "Home & Over 1.5": 1.48, "1X & Over 1.5": 1.32, "BTTS (Yes)": 2.02 }, data_source: "Hibrid xG / Understat Modell" },
         { match_id: `${todayStr}_M04`, date: todayStr, kickoff: `${todayStr.slice(5)} 19:00`, league: "La Liga", home_team: getTeamMetricsForName("Barcelona"), away_team: getTeamMetricsForName("Sevilla"), provided_odds: { "1": 1.38, "X": 5.00, "2": 7.60, "Over 1.5": 1.20, "Over 2.5": 1.54, "1X & Over 1.5": 1.42, "Home & Over 1.5": 1.55, "BTTS (Yes)": 1.82 }, data_source: "Hibrid xG / Understat Modell" },
-        { match_id: `${todayStr}_M05`, date: todayStr, kickoff: `${todayStr.slice(5)} 19:30`, league: "OTP Bank Liga (NB I)", home_team: getTeamMetricsForName("Ferencvárosi TC"), away_team: getTeamMetricsForName("Kecskeméti TE"), provided_odds: { "1": 1.36, "X": 4.90, "2": 8.20, "Over 1.5": 1.24, "Over 2.5": 1.68, "1X & Over 1.5": 1.44, "Home & Over 1.5": 1.56, "BTTS (Yes)": 1.95 }, data_source: "Hibrid xG / NB I Modell" },
+        { match_id: `${todayStr}_M05`, date: todayStr, kickoff: `${todayStr.slice(5)} 21:00`, league: "Bajnokok Ligája", home_team: getTeamMetricsForName("Real Madrid"), away_team: getTeamMetricsForName("AC Milan"), provided_odds: { "1": 1.58, "X": 4.20, "2": 5.40, "Over 1.5": 1.18, "Over 2.5": 1.55, "1X & Over 1.5": 1.40, "Home & Over 1.5": 1.72, "BTTS (Yes)": 1.66 }, data_source: "Hibrid xG / BL Modell" },
         { match_id: `${tomorrowStr}_M06`, date: tomorrowStr, kickoff: `${tomorrowStr.slice(5)} 20:00`, league: "Serie A", home_team: getTeamMetricsForName("Verona"), away_team: getTeamMetricsForName("Inter"), provided_odds: { "1": 6.40, "X": 4.40, "2": 1.50, "X2": 1.15, "Over 1.5": 1.25, "Over 2.5": 1.72, "X2 & Over 1.5": 1.46, "Away & Over 1.5": 1.76, "BTTS (Yes)": 1.92 }, data_source: "Hibrid xG / Understat Modell" },
         { match_id: `${tomorrowStr}_M07`, date: tomorrowStr, kickoff: `${tomorrowStr.slice(5)} 20:30`, league: "Bundesliga", home_team: getTeamMetricsForName("Leverkusen"), away_team: getTeamMetricsForName("Werder Bremen"), provided_odds: { "1": 1.40, "X": 4.85, "2": 7.20, "Over 1.5": 1.19, "Over 2.5": 1.52, "1X & Over 1.5": 1.43, "Home & Over 1.5": 1.58, "BTTS (Yes)": 1.78 }, data_source: "Hibrid xG / Understat Modell" },
         { match_id: `${tomorrowStr}_M08`, date: tomorrowStr, kickoff: `${tomorrowStr.slice(5)} 20:45`, league: "Ligue 1", home_team: getTeamMetricsForName("Paris Saint-Germain"), away_team: getTeamMetricsForName("Marseille"), provided_odds: { "1": 1.48, "X": 4.60, "2": 6.10, "Over 1.5": 1.18, "Over 2.5": 1.50, "1X & Over 1.5": 1.45, "Home & Over 1.5": 1.66, "BTTS (Yes)": 1.68 }, data_source: "Hibrid xG / Understat Modell" }
@@ -2227,7 +2337,11 @@ async function executeFullPipeline(forcePrematchFinalize = false) {
             rawMatches = getSimulationMatches(today, tomorrow, sc);
         }
 
-        const existingTodayRun = appState.daily_runs[today] || null;
+        let existingTodayRun = appState.daily_runs[today] || null;
+        if (existingTodayRun && runHasForbiddenLeagues(existingTodayRun)) {
+            delete appState.daily_runs[today];
+            existingTodayRun = null;
+        }
         const margin = parseNumHu(appState.settings.bookmaker_margin, 0.055);
         const maxShared = parseInt(appState.settings.max_shared_matches ?? 1, 10);
 
@@ -2252,7 +2366,8 @@ async function executeFullPipeline(forcePrematchFinalize = false) {
         const existingSnapValid = existingTodayRun &&
             Array.isArray(existingTodayRun.draft_slips_snapshot) &&
             existingTodayRun.draft_slips_snapshot.length === 3 &&
-            existingTodayRun.draft_slips_snapshot.some(s => s && s.is_recommended);
+            existingTodayRun.draft_slips_snapshot.some(s => s && s.is_recommended) &&
+            !existingTodayRun.draft_slips_snapshot.some(s => s && Array.isArray(s.legs) && s.legs.some(l => l && !isAllowedEliteLeague(l.league)));
         const draftSlipsSnapshot = existingSnapValid
             ? existingTodayRun.draft_slips_snapshot
             : JSON.parse(JSON.stringify(draftRec.slips));
@@ -2264,7 +2379,8 @@ async function executeFullPipeline(forcePrematchFinalize = false) {
             existingTodayRun &&
             existingTodayRun.stage === "FINAL" &&
             existingTodayRun.recommendation &&
-            !existingTodayRun.recommendation.is_no_bet_day
+            !existingTodayRun.recommendation.is_no_bet_day &&
+            !runHasForbiddenLeagues(existingTodayRun)
         );
         const shouldFinalizeNow = forcePrematchFinalize || isPastPrematchWindow || wasAlreadyFinalized;
 
@@ -2805,14 +2921,22 @@ function inspectMatchMatrix(matchId) {
 }
 
 async function refreshAllNow() {
-    await executeFullPipeline();
-    showToast("🔄 Frissítés kész! A mérkőzések és a szelvények újraszámolva.");
+    const { today } = getLocalDates();
+    if (appState.daily_runs && appState.daily_runs[today]) {
+        delete appState.daily_runs[today];
+    }
+    await executeFullPipeline(true);
+    showToast("🔄 Frissítés kész! Csak a kiemelt fő ligák és BL/EL/Válogatott meccsek alapján újraszámolva.");
 }
 
 async function onModeOrScenarioChange(newVal) {
     appState.settings.mode_selection = newVal;
+    const { today } = getLocalDates();
+    if (appState.daily_runs && appState.daily_runs[today]) {
+        delete appState.daily_runs[today];
+    }
     savePersistedState();
-    await executeFullPipeline();
+    await executeFullPipeline(true);
     showToast(`Adatforrás / Időablak átállítva: ${newVal}`);
 }
 
@@ -3003,8 +3127,14 @@ async function runPrematchDeepAnalysisNow() {
 
 function mergeDiskRunsIntelligently(localRuns, diskRuns) {
     const out = { ...(localRuns || {}) };
+    for (const [d, row] of Object.entries(out)) {
+        if (row && runHasForbiddenLeagues(row)) {
+            delete out[d];
+        }
+    }
     for (const [d, dRun] of Object.entries(diskRuns || {})) {
         if (!dRun || typeof dRun !== "object") continue;
+        if (runHasForbiddenLeagues(dRun)) continue;
         const lRun = out[d];
         if (!lRun) {
             out[d] = dRun;
