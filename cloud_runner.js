@@ -277,15 +277,147 @@ function computeCurrentDailyBudget(state) {
     return Math.round(currBankroll * (pct / 100));
 }
 
+const TEAM_DB = {
+    "Manchester City": { npxg: 2.18, npxga: 0.78, xg_per_shot: 0.134, box_touches: 38.5, ppda: 8.4, field_tilt: 68.5, elo: 2015 },
+    "Arsenal": { npxg: 1.98, npxga: 0.72, xg_per_shot: 0.128, box_touches: 34.2, ppda: 8.2, field_tilt: 64.0, elo: 1970 },
+    "Liverpool": { npxg: 2.14, npxga: 0.84, xg_per_shot: 0.132, box_touches: 36.8, ppda: 7.8, field_tilt: 64.2, elo: 1980 },
+    "Chelsea": { npxg: 1.72, npxga: 1.14, xg_per_shot: 0.120, box_touches: 29.4, ppda: 9.5, field_tilt: 58.2, elo: 1855 },
+    "Tottenham": { npxg: 1.78, npxga: 1.28, xg_per_shot: 0.121, box_touches: 31.0, ppda: 8.5, field_tilt: 59.4, elo: 1845 },
+    "Newcastle": { npxg: 1.64, npxga: 1.12, xg_per_shot: 0.121, box_touches: 27.2, ppda: 10.0, field_tilt: 53.0, elo: 1835 },
+    "Aston Villa": { npxg: 1.66, npxga: 1.14, xg_per_shot: 0.121, box_touches: 26.8, ppda: 10.8, field_tilt: 53.5, elo: 1850 },
+    "Brighton": { npxg: 1.62, npxga: 1.26, xg_per_shot: 0.116, box_touches: 28.1, ppda: 9.2, field_tilt: 56.8, elo: 1810 },
+    "Real Madrid": { npxg: 2.12, npxga: 0.80, xg_per_shot: 0.134, box_touches: 35.6, ppda: 9.2, field_tilt: 64.2, elo: 1985 },
+    "Barcelona": { npxg: 2.28, npxga: 0.88, xg_per_shot: 0.140, box_touches: 38.2, ppda: 7.6, field_tilt: 67.8, elo: 1965 },
+    "Atletico Madrid": { npxg: 1.68, npxga: 0.84, xg_per_shot: 0.125, box_touches: 26.4, ppda: 10.5, field_tilt: 53.8, elo: 1885 },
+    "Atlético Madrid": { npxg: 1.68, npxga: 0.84, xg_per_shot: 0.125, box_touches: 26.4, ppda: 10.5, field_tilt: 53.8, elo: 1885 },
+    "Athletic Bilbao": { npxg: 1.56, npxga: 0.96, xg_per_shot: 0.118, box_touches: 25.2, ppda: 9.4, field_tilt: 54.8, elo: 1825 },
+    "Villarreal": { npxg: 1.58, npxga: 1.34, xg_per_shot: 0.121, box_touches: 25.4, ppda: 11.4, field_tilt: 51.2, elo: 1795 },
+    "Girona": { npxg: 1.52, npxga: 1.28, xg_per_shot: 0.116, box_touches: 24.8, ppda: 10.2, field_tilt: 54.5, elo: 1790 },
+    "Bayern": { npxg: 2.36, npxga: 0.84, xg_per_shot: 0.140, box_touches: 39.6, ppda: 7.5, field_tilt: 69.8, elo: 1965 },
+    "Leverkusen": { npxg: 2.06, npxga: 0.92, xg_per_shot: 0.130, box_touches: 35.0, ppda: 8.3, field_tilt: 65.0, elo: 1925 },
+    "Dortmund": { npxg: 1.86, npxga: 1.22, xg_per_shot: 0.126, box_touches: 31.0, ppda: 9.3, field_tilt: 59.2, elo: 1865 },
+    "Leipzig": { npxg: 1.78, npxga: 1.04, xg_per_shot: 0.124, box_touches: 29.2, ppda: 8.9, field_tilt: 57.0, elo: 1855 },
+    "Stuttgart": { npxg: 1.76, npxga: 1.22, xg_per_shot: 0.124, box_touches: 28.8, ppda: 9.5, field_tilt: 57.8, elo: 1825 },
+    "Inter": { npxg: 2.08, npxga: 0.78, xg_per_shot: 0.134, box_touches: 34.6, ppda: 9.0, field_tilt: 63.0, elo: 1960 },
+    "Atalanta": { npxg: 1.98, npxga: 1.02, xg_per_shot: 0.129, box_touches: 33.2, ppda: 8.1, field_tilt: 61.2, elo: 1895 },
+    "Napoli": { npxg: 1.82, npxga: 0.84, xg_per_shot: 0.123, box_touches: 31.0, ppda: 9.2, field_tilt: 60.0, elo: 1875 },
+    "Juventus": { npxg: 1.58, npxga: 0.76, xg_per_shot: 0.117, box_touches: 26.2, ppda: 10.1, field_tilt: 56.5, elo: 1855 },
+    "AC Milan": { npxg: 1.76, npxga: 1.12, xg_per_shot: 0.122, box_touches: 29.6, ppda: 9.6, field_tilt: 58.0, elo: 1845 },
+    "Bologna": { npxg: 1.44, npxga: 1.08, xg_per_shot: 0.112, box_touches: 23.8, ppda: 9.8, field_tilt: 53.5, elo: 1775 },
+    "Paris Saint-Germain": { npxg: 2.28, npxga: 0.84, xg_per_shot: 0.136, box_touches: 38.8, ppda: 7.7, field_tilt: 68.8, elo: 1925 },
+    "Monaco": { npxg: 1.84, npxga: 1.08, xg_per_shot: 0.125, box_touches: 30.4, ppda: 8.6, field_tilt: 58.8, elo: 1825 },
+    "Lille": { npxg: 1.68, npxga: 0.96, xg_per_shot: 0.120, box_touches: 27.6, ppda: 9.4, field_tilt: 56.2, elo: 1820 },
+    "Brest": { npxg: 1.54, npxga: 1.14, xg_per_shot: 0.116, box_touches: 24.8, ppda: 10.2, field_tilt: 52.4, elo: 1775 },
+    "Sporting": { npxg: 2.16, npxga: 0.82, xg_per_shot: 0.133, box_touches: 35.8, ppda: 8.1, field_tilt: 64.5, elo: 1885 },
+    "Benfica": { npxg: 1.94, npxga: 0.92, xg_per_shot: 0.127, box_touches: 33.0, ppda: 8.5, field_tilt: 61.8, elo: 1835 },
+    "PSV": { npxg: 2.12, npxga: 0.92, xg_per_shot: 0.131, box_touches: 35.2, ppda: 8.3, field_tilt: 63.4, elo: 1830 },
+    "Feyenoord": { npxg: 1.88, npxga: 1.02, xg_per_shot: 0.124, box_touches: 31.4, ppda: 8.8, field_tilt: 60.2, elo: 1795 },
+    "Celtic": { npxg: 1.86, npxga: 1.06, xg_per_shot: 0.124, box_touches: 30.8, ppda: 8.9, field_tilt: 59.5, elo: 1765 },
+    "Club Brugge": { npxg: 1.66, npxga: 1.12, xg_per_shot: 0.118, box_touches: 27.2, ppda: 9.8, field_tilt: 55.0, elo: 1760 },
+    "Bodø/Glimt": { npxg: 1.82, npxga: 1.08, xg_per_shot: 0.124, box_touches: 30.2, ppda: 8.9, field_tilt: 58.4, elo: 1745 },
+    "LASK": { npxg: 1.48, npxga: 1.26, xg_per_shot: 0.112, box_touches: 23.8, ppda: 10.2, field_tilt: 51.5, elo: 1665 },
+    "Salzburg": { npxg: 1.52, npxga: 1.32, xg_per_shot: 0.114, box_touches: 25.0, ppda: 9.6, field_tilt: 53.0, elo: 1695 },
+    "Crvena Zvezda": { npxg: 1.32, npxga: 1.56, xg_per_shot: 0.105, box_touches: 20.4, ppda: 12.1, field_tilt: 45.5, elo: 1665 },
+    "Slovan Bratislava": { npxg: 1.04, npxga: 1.82, xg_per_shot: 0.097, box_touches: 16.8, ppda: 13.6, field_tilt: 39.5, elo: 1590 }
+};
+
+function shinDeVig1X2(o1, oX, o2) {
+    if (!o1 || !oX || !o2 || o1 <= 1.01 || oX <= 1.01 || o2 <= 1.01) return null;
+    const pi1 = 1 / o1, piX = 1 / oX, pi2 = 1 / o2;
+    const S = pi1 + piX + pi2;
+    if (S <= 1.0001) return { p1: pi1 / S, pX: piX / S, p2: pi2 / S, z: 0 };
+    let zLow = 0.0, zHigh = 0.30, zMid = 0.02;
+    for (let iter = 0; iter < 28; iter++) {
+        zMid = 0.5 * (zLow + zHigh);
+        const calcP = (pi) => (Math.sqrt(zMid * zMid + 4 * (1 - zMid) * (pi * pi) / S) - zMid) / (2 * (1 - zMid));
+        if (calcP(pi1) + calcP(piX) + calcP(pi2) > 1.0) zLow = zMid;
+        else zHigh = zMid;
+    }
+    const calcP = (pi) => (Math.sqrt(zMid * zMid + 4 * (1 - zMid) * (pi * pi) / S) - zMid) / (2 * (1 - zMid));
+    const p1 = calcP(pi1), pX = calcP(piX), p2 = calcP(pi2);
+    const norm = p1 + pX + p2;
+    return { p1: p1 / norm, pX: pX / norm, p2: p2 / norm, z: zMid };
+}
+
+function extractMarketImpliedLambdas(shinProbs, over25Odds) {
+    if (!shinProbs) return null;
+    let totalGoals = 2.78;
+    if (over25Odds && over25Odds > 1.08 && over25Odds < 4.50) {
+        const pO25 = Math.min(0.88, Math.max(0.18, (1 / over25Odds) / 1.048));
+        let lo = 1.10, hi = 5.20;
+        for (let i = 0; i < 24; i++) {
+            const mid = 0.5 * (lo + hi);
+            const pge3 = 1 - Math.exp(-mid) * (1 + mid + 0.5 * mid * mid);
+            if (pge3 < pO25) lo = mid;
+            else hi = mid;
+        }
+        totalGoals = 0.5 * (lo + hi);
+    }
+    const logRatio = Math.log(Math.max(0.04, shinProbs.p1) / Math.max(0.04, shinProbs.p2));
+    const shareHome = 1 / (1 + Math.exp(-0.58 * logRatio));
+    return {
+        lamH: Math.min(3.85, Math.max(0.32, totalGoals * shareHome)),
+        lamA: Math.min(3.65, Math.max(0.28, totalGoals * (1 - shareHome)))
+    };
+}
+
+function getTeamMetricsForName(teamName, impliedStrength = 1.0) {
+    const lower = (teamName || "").toLowerCase();
+    const s = Math.min(1.65, Math.max(0.55, impliedStrength));
+    const imp = {
+        npxg: 1.35 * s,
+        npxga: 1.35 / Math.max(0.62, Math.pow(s, 0.85)),
+        xg_per_shot: 0.112 * (0.84 + 0.16 * s),
+        box_touches: 23.0 * s,
+        ppda: 11.4 / (0.82 + 0.18 * s),
+        field_tilt: Math.min(71.0, Math.max(31.0, 50.0 * Math.pow(s, 0.72))),
+        elo: Math.round(1720 + (s - 1.0) * 420)
+    };
+    for (const [k, d] of Object.entries(TEAM_DB)) {
+        if (lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower)) {
+            const wDb = 0.68, wImp = 0.32;
+            return {
+                name: teamName,
+                npxg: Number((wDb * d.npxg + wImp * imp.npxg).toFixed(2)),
+                npxga: Number((wDb * d.npxga + wImp * imp.npxga).toFixed(2)),
+                xg_per_shot: Number((wDb * d.xg_per_shot + wImp * imp.xg_per_shot).toFixed(3)),
+                box_touches: Number((wDb * d.box_touches + wImp * imp.box_touches).toFixed(1)),
+                ppda: Number((wDb * d.ppda + wImp * imp.ppda).toFixed(1)),
+                field_tilt: Number((wDb * d.field_tilt + wImp * imp.field_tilt).toFixed(1)),
+                elo: Math.round(wDb * (d.elo || 1780) + wImp * imp.elo)
+            };
+        }
+    }
+    return {
+        name: teamName,
+        npxg: Number(imp.npxg.toFixed(2)),
+        npxga: Number(imp.npxga.toFixed(2)),
+        xg_per_shot: Number(imp.xg_per_shot.toFixed(3)),
+        box_touches: Number(imp.box_touches.toFixed(1)),
+        ppda: Number(imp.ppda.toFixed(1)),
+        field_tilt: Number(imp.field_tilt.toFixed(1)),
+        elo: imp.elo
+    };
+}
+
+function dixonColesTau(hg, ag, lamH, lamA, rho) {
+    if (hg === 0 && ag === 0) return Math.max(0.25, 1.0 - lamH * lamA * rho);
+    if (hg === 0 && ag === 1) return Math.max(0.25, 1.0 + lamH * rho);
+    if (hg === 1 && ag === 0) return Math.max(0.25, 1.0 + lamA * rho);
+    if (hg === 1 && ag === 1) return Math.max(0.25, 1.0 - rho);
+    return 1.0;
+}
+
 async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
     const leagues = [
-        { key: "soccer_uefa_champs_league", title: "Champions League" },
-        { key: "soccer_uefa_europa_league", title: "Europa League" },
+        { key: "soccer_uefa_champs_league", title: "Bajnokok Ligája" },
+        { key: "soccer_uefa_europa_league", title: "Európa Liga" },
         { key: "soccer_epl", title: "Premier League" },
         { key: "soccer_spain_la_liga", title: "La Liga" },
         { key: "soccer_germany_bundesliga", title: "Bundesliga" },
         { key: "soccer_italy_serie_a", title: "Serie A" },
-        { key: "soccer_france_ligue_one", title: "Ligue 1" }
+        { key: "soccer_france_ligue_one", title: "Ligue 1" },
+        { key: "soccer_netherlands_eredivisie", title: "Eredivisie" }
     ];
 
     const near = [];
@@ -302,37 +434,54 @@ async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
             const mDate = commStr.slice(0, 10);
             const hhmm = commStr.slice(11, 16) || "20:00";
 
-            const odds = {};
-            const h1 = [], hx = [], h2 = [], o25 = [];
+            const h1 = [], hx = [], h2 = [], o25 = [], o15 = [];
             for (const bm of (ev.bookmakers || [])) {
                 for (const mkt of (bm.markets || [])) {
                     if (mkt.key === "h2h") {
                         for (const out of (mkt.outcomes || [])) {
-                            if (out.name === ev.home_team) h1.push(Number(out.price));
-                            else if (out.name === ev.away_team) h2.push(Number(out.price));
-                            else h1 && hx.push(Number(out.price));
+                            const pr = Number(out.price);
+                            if (!pr || pr <= 1.01) continue;
+                            if (out.name === ev.home_team) h1.push(pr);
+                            else if (out.name === ev.away_team) h2.push(pr);
+                            else hx.push(pr);
                         }
                     } else if (mkt.key === "totals") {
                         for (const out of (mkt.outcomes || [])) {
-                            if (out.name === "Over" && Math.abs(Number(out.point) - 2.5) < 0.1) {
-                                o25.push(Number(out.price));
-                            }
+                            const pr = Number(out.price);
+                            const pt = Number(out.point);
+                            if (!pr || pr <= 1.01) continue;
+                            if (out.name === "Over" && Math.abs(pt - 2.5) < 0.1) o25.push(pr);
+                            if (out.name === "Over" && Math.abs(pt - 1.5) < 0.1) o15.push(pr);
                         }
                     }
                 }
             }
 
-            if (h1.length > 0) odds["1"] = Number((h1.reduce((a, b) => a + b, 0) / h1.length).toFixed(2));
-            if (hx.length > 0) odds["X"] = Number((hx.reduce((a, b) => a + b, 0) / hx.length).toFixed(2));
-            if (h2.length > 0) odds["2"] = Number((h2.reduce((a, b) => a + b, 0) / h2.length).toFixed(2));
-            if (o25.length > 0) odds["Over 2.5"] = Number((o25.reduce((a, b) => a + b, 0) / o25.length).toFixed(2));
+            const avg = (arr) => arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2)) : null;
+            const bestPrice = (arr) => {
+                if (!arr.length) return null;
+                const sorted = [...arr].sort((a, b) => a - b);
+                const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * 0.85));
+                return Number(sorted[idx].toFixed(2));
+            };
+
+            const consensus = {};
+            const odds = {};
+            if (h1.length) { consensus["1"] = avg(h1); odds["1"] = bestPrice(h1); }
+            if (hx.length) { consensus["X"] = avg(hx); odds["X"] = bestPrice(hx); }
+            if (h2.length) { consensus["2"] = avg(h2); odds["2"] = bestPrice(h2); }
+            if (o25.length) { consensus["Over 2.5"] = avg(o25); odds["Over 2.5"] = bestPrice(o25); }
+            if (o15.length) { consensus["Over 1.5"] = avg(o15); odds["Over 1.5"] = bestPrice(o15); }
             if (!odds["1"] || !odds["2"]) continue;
 
-            // Implikált xG profil a piaci szorzóból
-            const p1Raw = 1 / odds["1"];
-            const p2Raw = 1 / odds["2"];
-            const hNpxg = Number(Math.min(2.45, Math.max(0.85, 1.15 + p1Raw * 1.15)).toFixed(2));
-            const aNpxg = Number(Math.min(2.25, Math.max(0.75, 0.95 + p2Raw * 1.10)).toFixed(2));
+            const shin = shinDeVig1X2(consensus["1"] || 2.15, consensus["X"] || 3.40, consensus["2"] || 3.20);
+            const p1True = shin ? shin.p1 : 0.45;
+            const p2True = shin ? shin.p2 : 0.30;
+            const hStr = Math.min(1.62, Math.max(0.60, 0.72 + p1True * 1.18));
+            const aStr = Math.min(1.58, Math.max(0.58, 0.68 + p2True * 1.18));
+
+            const hMetrics = getTeamMetricsForName(ev.home_team, hStr);
+            const aMetrics = getTeamMetricsForName(ev.away_team, aStr);
 
             const item = {
                 match_id: `LIVE_${ev.id}`,
@@ -342,8 +491,11 @@ async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
                 league: lg.title,
                 home_name: ev.home_team,
                 away_name: ev.away_team,
-                home_npxg: hNpxg,
-                away_npxg: aNpxg,
+                home_team: hMetrics,
+                away_team: aMetrics,
+                home_npxg: hMetrics.npxg,
+                away_npxg: aMetrics.npxg,
+                consensus_odds: consensus,
                 provided_odds: odds
             };
 
@@ -354,7 +506,7 @@ async function fetchLiveCandidateMatches(oddsKey, todayStr, tomorrowStr) {
 
     near.sort((a, b) => a.commence_iso.localeCompare(b.commence_iso));
     later.sort((a, b) => a.commence_iso.localeCompare(b.commence_iso));
-    return [...near, ...later].slice(0, 16);
+    return [...near, ...later].slice(0, 18);
 }
 
 async function fetchPrematchInjuriesMap(afKey, todayStr) {
@@ -377,27 +529,97 @@ async function fetchPrematchInjuriesMap(afKey, todayStr) {
 }
 
 function analyzeMatchAndMarkets(m, margin = 0.055) {
-    const lamH = Number(Math.min(3.4, Math.max(0.45, m.home_npxg * 1.06)).toFixed(2));
-    const lamA = Number(Math.min(3.1, Math.max(0.40, m.away_npxg * 0.96)).toFixed(2));
+    const avgXg = 1.34;
+    const h = m.home_team || getTeamMetricsForName(m.home_name, 1.1);
+    const a = m.away_team || getTeamMetricsForName(m.away_name, 0.95);
+    h.npxg = m.home_npxg || h.npxg;
+    a.npxg = m.away_npxg || a.npxg;
+
+    const eloH = h.elo || 1750;
+    const eloA = a.elo || 1720;
+    const eloDiff = (eloH - eloA) + 48;
+    const eloMultH = Math.min(1.42, Math.max(0.68, Math.pow(10, eloDiff / 1050)));
+    const eloMultA = Math.min(1.42, Math.max(0.68, Math.pow(10, -eloDiff / 1050)));
+
+    const baseH = Math.max(0.38, h.npxg / avgXg) * Math.max(0.38, a.npxga / avgXg) * avgXg * (0.72 + 0.28 * eloMultH);
+    const baseA = Math.max(0.38, a.npxg / avgXg) * Math.max(0.38, h.npxga / avgXg) * avgXg * (0.72 + 0.28 * eloMultA);
+
+    const sqH = Math.min(1.26, Math.max(0.82, 1 + 0.36 * ((h.xg_per_shot - 0.11) / 0.11)));
+    const sqA = Math.min(1.26, Math.max(0.82, 1 + 0.36 * ((a.xg_per_shot - 0.11) / 0.11)));
+    const boxH = Math.min(1.28, Math.max(0.78, 1 + 0.26 * ((h.box_touches - 22.5) / 22.5)));
+    const boxA = Math.min(1.28, Math.max(0.78, 1 + 0.26 * ((a.box_touches - 22.5) / 22.5)));
+
+    const totTilt = (h.field_tilt + a.field_tilt) || 100;
+    const normTiltH = (h.field_tilt / totTilt) * 100;
+    const tiltH = 1 + 0.28 * ((normTiltH - 50) / 100);
+    const tiltA = 1 + 0.28 * (((100 - normTiltH) - 50) / 100);
+
+    const pressEdgeH = (11.5 - h.ppda) / 11.5;
+    const pressEdgeA = (11.5 - a.ppda) / 11.5;
+    const ppdaH = Math.min(1.22, Math.max(0.82, 1 + 0.16 * pressEdgeH - 0.07 * pressEdgeA));
+    const ppdaA = Math.min(1.22, Math.max(0.82, 1 + 0.16 * pressEdgeA - 0.07 * pressEdgeH));
+
+    const tacH = 0.48 + 0.52 * (sqH * boxH * tiltH * ppdaH);
+    const tacA = 0.48 + 0.52 * (sqA * boxA * tiltA * ppdaA);
+
+    let structLamH = baseH * tacH * 1.12 + 0.08 * (h.box_touches / 22.5);
+    let structLamA = baseA * tacA * 0.94 + 0.08 * (a.box_touches / 22.5);
+
+    const prov = m.provided_odds || {};
+    const cons = m.consensus_odds || prov;
+    const shin = shinDeVig1X2(cons["1"] || prov["1"], cons["X"] || prov["X"], cons["2"] || prov["2"]);
+    const mktImplied = extractMarketImpliedLambdas(shin, cons["Over 2.5"] || prov["Over 2.5"]);
+
+    let lamH = structLamH, lamA = structLamA;
+    if (mktImplied) {
+        lamH = 0.58 * structLamH + 0.42 * mktImplied.lamH;
+        lamA = 0.58 * structLamA + 0.42 * mktImplied.lamA;
+    }
+    lamH = Number(Math.min(4.4, Math.max(0.26, lamH)).toFixed(2));
+    lamA = Number(Math.min(4.1, Math.max(0.22, lamA)).toFixed(2));
+
+    const avgPpda = (h.ppda + a.ppda) / 2;
+    const tempoBoost = Math.max(0, (12.6 - avgPpda) * 0.009);
+    const closeness = Math.exp(-Math.abs(lamH - lamA) * 0.82);
+    const lambdaCov = Math.min(Math.min(lamH, lamA) * 0.34, Math.max(0.03, 0.065 + 0.075 * closeness + tempoBoost));
+    const l1 = Math.max(0.05, lamH - lambdaCov);
+    const l2 = Math.max(0.05, lamA - lambdaCov);
+    const l3 = Math.max(0, lambdaCov);
+    const dcRho = Math.max(-0.13, Math.min(-0.04, -0.085 + tempoBoost * 1.4));
+
+    const matrix = [];
+    let sumProb = 0;
+    for (let hg = 0; hg <= 7; hg++) {
+        matrix[hg] = [];
+        for (let ag = 0; ag <= 7; ag++) {
+            let p = 0;
+            const maxK = Math.min(hg, ag);
+            for (let k = 0; k <= maxK; k++) {
+                p += poissonPmf(hg - k, l1) * poissonPmf(ag - k, l2) * poissonPmf(k, l3);
+            }
+            p *= dixonColesTau(hg, ag, lamH, lamA, dcRho);
+            matrix[hg][ag] = p;
+            sumProb += p;
+        }
+    }
 
     let p1 = 0, pX = 0, p2 = 0, pO15 = 0, pO25 = 0, pBtts = 0;
     let pHomeO15 = 0, pAwayO15 = 0, p1XO15 = 0, pX2O15 = 0;
 
-    for (let h = 0; h <= 7; h++) {
-        const ph = poissonPmf(h, lamH);
-        for (let a = 0; a <= 7; a++) {
-            const p = ph * poissonPmf(a, lamA);
-            const tot = h + a;
-            if (h > a) p1 += p;
-            else if (h === a) pX += p;
+    for (let hg = 0; hg <= 7; hg++) {
+        for (let ag = 0; ag <= 7; ag++) {
+            const p = matrix[hg][ag] / (sumProb || 1);
+            const tot = hg + ag;
+            if (hg > ag) p1 += p;
+            else if (hg === ag) pX += p;
             else p2 += p;
             if (tot >= 2) pO15 += p;
             if (tot >= 3) pO25 += p;
-            if (h >= 1 && a >= 1) pBtts += p;
-            if (h > a && tot >= 2) pHomeO15 += p;
-            if (a > h && tot >= 2) pAwayO15 += p;
-            if (h >= a && tot >= 2) p1XO15 += p;
-            if (a >= h && tot >= 2) pX2O15 += p;
+            if (hg >= 1 && ag >= 1) pBtts += p;
+            if (hg > ag && tot >= 2) pHomeO15 += p;
+            if (ag > hg && tot >= 2) pAwayO15 += p;
+            if (hg >= ag && tot >= 2) p1XO15 += p;
+            if (ag >= hg && tot >= 2) pX2O15 += p;
         }
     }
 
@@ -409,11 +631,52 @@ function analyzeMatchAndMarkets(m, margin = 0.055) {
         "1X & Over 1.5": p1XO15, "X2 & Over 1.5": pX2O15
     };
 
+    const mktLamH = mktImplied ? mktImplied.lamH : lamH * 0.94;
+    const mktLamA = mktImplied ? mktImplied.lamA : lamA * 0.94;
+    let mp1 = 0, mpx = 0, mp2 = 0, mpo15 = 0, mpo25 = 0, mpbtts = 0, mpho15 = 0, mpao15 = 0, mp1xo15 = 0, mpx2o15 = 0, mSum = 0;
+    const mMat = [];
+    for (let hg = 0; hg <= 7; hg++) {
+        mMat[hg] = [];
+        for (let ag = 0; ag <= 7; ag++) {
+            const p = poissonPmf(hg, mktLamH) * poissonPmf(ag, mktLamA);
+            mMat[hg][ag] = p;
+            mSum += p;
+        }
+    }
+    for (let hg = 0; hg <= 7; hg++) {
+        for (let ag = 0; ag <= 7; ag++) {
+            const p = mMat[hg][ag] / (mSum || 1);
+            const tot = hg + ag;
+            if (hg > ag) { mp1 += p; if (tot >= 2) mpho15 += p; }
+            else if (hg === ag) mpx += p;
+            else { mp2 += p; if (tot >= 2) mpao15 += p; }
+            if (tot >= 2) {
+                mpo15 += p;
+                if (hg >= ag) mp1xo15 += p;
+                if (hg <= ag) mpx2o15 += p;
+            }
+            if (tot >= 3) mpo25 += p;
+            if (hg >= 1 && ag >= 1) mpbtts += p;
+        }
+    }
+    const mktProbs = {
+        "1": shin ? shin.p1 : mp1, "X": shin ? shin.pX : mpx, "2": shin ? shin.p2 : mp2,
+        "1X": shin ? (shin.p1 + shin.pX) : (mp1 + mpx), "X2": shin ? (shin.pX + shin.p2) : (mpx + mp2),
+        "Over 1.5": mpo15, "Over 2.5": mpo25, "BTTS (Yes)": mpbtts,
+        "Home & Over 1.5": mpho15, "Away & Over 1.5": mpao15,
+        "1X & Over 1.5": mp1xo15, "X2 & Over 1.5": mpx2o15
+    };
+
     const markets = {};
     for (const [code, pVal] of Object.entries(probs)) {
-        const pClamped = Math.min(0.95, Math.max(0.03, pVal));
+        const pClamped = Math.min(0.98, Math.max(0.02, pVal));
         const fair = Number((1 / pClamped).toFixed(2));
-        const mktOdds = m.provided_odds[code] || Number(Math.max(1.12, fair / (1 + margin * 0.45)).toFixed(2));
+        let mktOdds = prov[code];
+        if (!mktOdds) {
+            const pMktBase = Math.min(0.94, Math.max(0.03, mktProbs[code] || pClamped));
+            const implied = Math.min(0.93, Math.max(0.03, pMktBase * (1 + margin * 0.42)));
+            mktOdds = Number(Math.max(1.14, 1 / implied).toFixed(2));
+        }
         const ev = (pClamped * mktOdds) - 1;
         markets[code] = {
             market_code: code,
@@ -426,13 +689,75 @@ function analyzeMatchAndMarkets(m, margin = 0.055) {
         };
     }
 
+    const asym = Math.min(99, Math.max(8, (Math.abs(lamH - lamA) / 1.55) * 65 + (Math.abs(h.field_tilt - a.field_tilt) / 42) * 20 + (Math.abs(eloH - eloA) / 280) * 15));
+    const tempo = Math.min(99, Math.max(12, ((lamH + lamA) / 3.55) * 72 + Math.max(0, (13.8 - avgPpda) / 5.5) * 28));
+
     return {
         ...m,
+        home_team: h,
+        away_team: a,
         match_name: `${m.home_name} vs ${m.away_name}`,
         lambda_home: lamH,
         lambda_away: lamA,
+        asymmetry_index: Number(asym.toFixed(1)),
+        tempo_index: Number(tempo.toFixed(1)),
         markets
     };
+}
+
+function getCombinations(arr, k) {
+    if (k === 0) return [[]];
+    if (arr.length < k) return [];
+    const first = arr[0];
+    const rest = arr.slice(1);
+    const withFirst = getCombinations(rest, k - 1).map(c => [first, ...c]);
+    const withoutFirst = getCombinations(rest, k);
+    return [...withFirst, ...withoutFirst];
+}
+
+function findOptimalCombo(candidates, minLegs, maxLegs, targetMin, targetMax, hardMin, hardMax, usedCounts, currentShared, maxShared, prioritizeEv) {
+    let bestCombo = null;
+    let bestObj = -1e9;
+    const targetMid = (targetMin + targetMax) / 2;
+
+    for (let r = minLegs; r <= maxLegs; r++) {
+        const combos = getCombinations(candidates, r);
+        for (const combo of combos) {
+            let newOverlaps = 0;
+            let forbidden = false;
+            for (const leg of combo) {
+                const cnt = usedCounts[leg.match_id] || 0;
+                if (cnt >= 2) { forbidden = true; break; }
+                if (cnt === 1) newOverlaps++;
+            }
+            if (forbidden) continue;
+            if (currentShared + newOverlaps > maxShared) continue;
+
+            let combOdds = 1, combProb = 1, avgEv = 0;
+            for (const leg of combo) {
+                combOdds *= leg.market_odds;
+                combProb *= leg.p_model;
+                avgEv += leg.ev_percent;
+            }
+            avgEv /= r;
+            if (combOdds < hardMin || combOdds > hardMax) continue;
+
+            const inBand = combOdds >= targetMin && combOdds <= targetMax;
+            const bandBonus = inBand ? 280 : 0;
+            const distPenalty = Math.abs(combOdds - targetMid) * 32;
+            const overlapPenalty = newOverlaps * 40;
+            const quality = prioritizeEv
+                ? (avgEv * 19 + (combProb * 100) * 2.8)
+                : ((combProb * 100) * 4.8 + avgEv * 9.5);
+
+            const obj = bandBonus + quality - distPenalty - overlapPenalty;
+            if (obj > bestObj) {
+                bestObj = obj;
+                bestCombo = combo;
+            }
+        }
+    }
+    return bestCombo;
 }
 
 function makeLeg(m, code) {
@@ -454,7 +779,7 @@ function makeLeg(m, code) {
         ev_percent: mk.ev_percent,
         lambda_home: m.lambda_home,
         lambda_away: m.lambda_away,
-        rationale_hu: `Poisson λ=${m.lambda_home}–${m.lambda_away} | P=${(mk.p_model * 100).toFixed(1)}% | EV=${mk.ev_percent >= 0 ? "+" : ""}${mk.ev_percent}%`,
+        rationale_hu: `Dixon-Coles & Elo-xG λ=${m.lambda_home}–${m.lambda_away} | P=${(mk.p_model * 100).toFixed(1)}% | EV=${mk.ev_percent >= 0 ? "+" : ""}${mk.ev_percent}%`,
         status: "Függőben",
         final_score: null
     };
@@ -465,72 +790,87 @@ function buildThreeWorkingFormulaSlips(todayStr, analyzedMatches, dailyBudget, m
     const stake2 = Math.round(dailyBudget * 0.25);
     const stake3 = Math.max(0, dailyBudget - stake1 - stake2);
     const usageCount = {};
+    let currentShared = 0;
 
-    // 1. Szelvény: Alap (Magszelvény) - 2-3 láb, P >= 65%
-    const cands1 = [];
-    for (const m of analyzedMatches) {
-        const codes = ["1", "2", "1X & Over 1.5", "X2 & Over 1.5", "Home & Over 1.5", "Over 1.5"];
-        let best = null;
-        for (const c of codes) {
-            const mk = m.markets[c];
-            if (mk && mk.p_model >= 0.65 && mk.market_odds >= 1.24 && mk.market_odds <= 1.85) {
-                if (!best || mk.p_model > best.p_model) best = mk;
+    const pref1 = ["1", "2", "1X & Over 1.5", "X2 & Over 1.5", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5", "Over 2.5", "1X", "X2"];
+    const collect1 = (minP, minEv) => {
+        const list = [];
+        for (const m of analyzedMatches) {
+            let best = null, bestSc = -999;
+            for (const c of pref1) {
+                const mk = m.markets[c];
+                if (!mk || mk.p_model < minP || mk.market_odds < 1.18 || mk.market_odds > 2.18 || mk.ev < minEv) continue;
+                const sc = mk.p_model * 145 + (m.asymmetry_index || 50) * 0.48 + mk.ev_percent * 2.6 - Math.abs(mk.market_odds - 1.48) * 10;
+                if (sc > bestSc) { bestSc = sc; best = makeLeg(m, c); }
             }
+            if (best) list.push(best);
         }
-        if (best) cands1.push(makeLeg(m, best.market_code));
+        list.sort((a, b) => (b.p_model * 100 + b.ev_percent) - (a.p_model * 100 + a.ev_percent));
+        return list;
+    };
+    let cands1 = collect1(0.65, -0.07);
+    let legs1 = findOptimalCombo(cands1.slice(0, 14), 2, 3, 2.00, 3.00, 1.72, 3.65, usageCount, currentShared, maxShared, false);
+    if (!legs1) {
+        cands1 = collect1(0.61, -0.09);
+        legs1 = findOptimalCombo(cands1.slice(0, 14), 2, 3, 2.00, 3.00, 1.68, 3.75, usageCount, currentShared, maxShared, false);
     }
-    cands1.sort((a, b) => b.p_model - a.p_model);
-    const legs1 = cands1.slice(0, 2);
+    legs1 = legs1 || [];
     for (const l of legs1) usageCount[l.match_id] = (usageCount[l.match_id] || 0) + 1;
 
-    // 2. Szelvény: A Szelvény (Stabil 5-ös) - 4 láb, P >= 62%
-    const cands2 = [];
-    for (const m of analyzedMatches) {
-        const codes = ["1X & Over 1.5", "X2 & Over 1.5", "1X", "X2", "Over 1.5", "Over 2.5"];
-        let best = null;
-        for (const c of codes) {
-            const mk = m.markets[c];
-            if (mk && mk.p_model >= 0.62 && mk.market_odds >= 1.28 && mk.market_odds <= 1.75) {
-                if (!best || mk.p_model > best.p_model) best = mk;
+    const pref2 = ["1X & Over 1.5", "X2 & Over 1.5", "Over 2.5", "X2", "1X", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5"];
+    const collect2 = (minP, minEv) => {
+        const list = [];
+        for (const m of analyzedMatches) {
+            let best = null, bestSc = -999;
+            for (const c of pref2) {
+                const mk = m.markets[c];
+                if (!mk || mk.p_model < minP || mk.market_odds < 1.20 || mk.market_odds > 1.88 || mk.ev < minEv) continue;
+                const sc = mk.p_model * 125 + mk.ev_percent * 2.4 - Math.abs(mk.market_odds - 1.46) * 14;
+                if (sc > bestSc) { bestSc = sc; best = makeLeg(m, c); }
             }
+            if (best) list.push(best);
         }
-        if (best) cands2.push(makeLeg(m, best.market_code));
+        list.sort((a, b) => (b.p_model * 100 + b.ev_percent) - (a.p_model * 100 + a.ev_percent));
+        return list;
+    };
+    let cands2 = collect2(0.62, -0.07);
+    let legs2 = findOptimalCombo(cands2.slice(0, 14), 4, 5, 5.00, 6.50, 3.95, 7.80, usageCount, currentShared, maxShared, false);
+    if (!legs2) {
+        cands2 = collect2(0.58, -0.09);
+        legs2 = findOptimalCombo(cands2.slice(0, 14), 3, 5, 5.00, 6.50, 3.80, 7.95, usageCount, currentShared, maxShared, false);
     }
-    cands2.sort((a, b) => b.p_model - a.p_model);
-    const legs2 = [];
-    let shared12 = 0;
-    for (const l of cands2) {
-        if (legs2.length >= 4) break;
-        const alreadyUsed = usageCount[l.match_id] || 0;
-        if (alreadyUsed > 0 && shared12 >= maxShared) continue;
-        if (alreadyUsed > 0) shared12++;
-        legs2.push(l);
-        usageCount[l.match_id] = alreadyUsed + 1;
+    legs2 = legs2 || [];
+    for (const l of legs2) {
+        if ((usageCount[l.match_id] || 0) >= 1) currentShared++;
+        usageCount[l.match_id] = (usageCount[l.match_id] || 0) + 1;
     }
 
-    // 3. Szelvény: B Szelvény (+EV 5-ös) - 4 láb, EV > 0
-    const cands3 = [];
-    for (const m of analyzedMatches) {
-        const codes = ["BTTS (Yes)", "Over 2.5", "1", "2", "Home & Over 1.5", "Away & Over 1.5"];
-        let best = null;
-        for (const c of codes) {
-            const mk = m.markets[c];
-            if (mk && mk.ev > 0 && mk.p_model >= 0.45 && mk.market_odds >= 1.45 && mk.market_odds <= 2.35) {
-                if (!best || mk.ev > best.ev) best = mk;
+    const pref3 = ["BTTS (Yes)", "Over 2.5", "1", "2", "Home & Over 1.5", "Away & Over 1.5", "1X & Over 1.5", "X2 & Over 1.5", "X"];
+    const collect3 = (minEv, minP) => {
+        const list = [];
+        for (const m of analyzedMatches) {
+            let best = null, bestSc = -999;
+            for (const c of pref3) {
+                const mk = m.markets[c];
+                if (!mk || mk.ev <= minEv || mk.p_model < minP || mk.market_odds < 1.32 || mk.market_odds > 2.85) continue;
+                const sc = mk.ev_percent * 4.5 + (m.tempo_index || 60) * 0.38 + mk.p_model * 85;
+                if (sc > bestSc) { bestSc = sc; best = makeLeg(m, c); }
             }
+            if (best) list.push(best);
         }
-        if (best) cands3.push(makeLeg(m, best.market_code));
+        list.sort((a, b) => b.ev_percent - a.ev_percent);
+        return list;
+    };
+    let cands3 = collect3(0.0, 0.42);
+    let legs3 = findOptimalCombo(cands3.slice(0, 14), 3, 5, 8.00, 10.00, 6.00, 13.50, usageCount, currentShared, maxShared, true);
+    if (!legs3 && analyzedMatches.length >= 6) {
+        cands3 = collect3(-0.02, 0.40);
+        legs3 = findOptimalCombo(cands3.slice(0, 14), 3, 5, 8.00, 10.00, 5.80, 13.80, usageCount, currentShared, maxShared, true);
     }
-    cands3.sort((a, b) => b.ev - a.ev);
-    const legs3 = [];
-    let shared3 = 0;
-    for (const l of cands3) {
-        if (legs3.length >= 4) break;
-        const alreadyUsed = usageCount[l.match_id] || 0;
-        if (alreadyUsed > 0 && shared3 >= maxShared) continue;
-        if (alreadyUsed > 0) shared3++;
-        legs3.push(l);
-        usageCount[l.match_id] = alreadyUsed + 1;
+    legs3 = legs3 || [];
+    for (const l of legs3) {
+        if ((usageCount[l.match_id] || 0) >= 1) currentShared++;
+        usageCount[l.match_id] = (usageCount[l.match_id] || 0) + 1;
     }
 
     function wrapSlip(idx, nameHu, subHu, tMin, tMax, sharePct, stake, legs, minLegs) {
@@ -567,16 +907,17 @@ function buildThreeWorkingFormulaSlips(todayStr, analyzedMatches, dailyBudget, m
     const s3 = wrapSlip(3, "3. B Szelvény (+EV 5-ös)", "Max. 5 láb | Pozitív Várható Érték (EV > 0) | Cél odds: 8.00–10.00 | Bankroll 10%", 8.0, 10.0, 10, stake3, legs3, 3);
 
     const slips = [s1, s2, s3];
+    const activeCount = slips.filter(s => s.is_recommended).length;
     const actualStaked = slips.reduce((acc, s) => acc + (s.stake_huf || 0), 0);
     const sharedIds = Object.keys(usageCount).filter(k => usageCount[k] > 1);
 
     return {
         date: todayStr,
-        is_no_bet_day: !s1.is_recommended,
-        recommendation_headline_hu: s1.is_recommended
-            ? "✅ TELJES NAPI STRATÉGIA AKTÍV — KVANTITATÍV SZELVÉNYEK ELKÉSZÜLTEK"
-            : "⚠️ MA NEM AJÁNLOTT FOGADNI (NO-BET NAP — BANKROLL VÉDELEM)",
-        recommendation_summary_hu: "A Bivariate Poisson + xG modell és a kétlépcsős (08:00 Tervezet -> Meccs előtt 1 órával Véglegesítés) protokoll alapján összeállított szelvények.",
+        is_no_bet_day: activeCount === 0,
+        recommendation_headline_hu: activeCount === 3
+            ? "✅ TELJES NAPI STRATÉGIA AKTÍV — MIND A 3 SZELVÉNY AJÁNLOTT"
+            : (activeCount > 0 ? `🛡️ SZELEKTÍV NAPI STRATÉGIA — ${activeCount} SZELVÉNY AJÁNLOTT` : "⚠️ MA NEM AJÁNLOTT FOGADNI (NO-BET NAP — BANKROLL VÉDELEM)"),
+        recommendation_summary_hu: "A Dixon-Coles (1997) + Karlis-Ntzoufras Bivariate Poisson + Shin (1993) De-Vigging + Bayes-i ClubElo-xG modell és a kétlépcsős (08:00 Tervezet -> Meccs előtt 1 órával Véglegesítés) protokoll alapján összeállított szelvények.",
         daily_bankroll_budget_huf: dailyBudget,
         actual_staked_huf: actualStaked,
         saved_bankroll_huf: Math.max(0, dailyBudget - actualStaked),
