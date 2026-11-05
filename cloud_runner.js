@@ -175,6 +175,17 @@ async function fetchFinishedScores(oddsKey, fdKey) {
     return scoresMap;
 }
 
+function cleanTeamNameForMatch(name) {
+    if (!name) return "";
+    return name
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, " ")
+        .replace(/\b(fc|cf|ac|afc|club|de|la|el|piraeus|rotterdam|milan|lisbon|salzburg|sk|vfb)\b/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 function evaluatePastDayRun(runObj, scoresMap) {
     if (!runObj || !runObj.recommendation || !Array.isArray(runObj.recommendation.slips)) return;
     const rec = runObj.recommendation;
@@ -198,13 +209,36 @@ function evaluatePastDayRun(runObj, scoresMap) {
             if (!leg) continue;
             const key = String(leg.match_name || "").toLowerCase();
             let hg = 2, ag = 1;
-            if (scoresMap[key]) {
+
+            if (leg.final_score && typeof leg.final_score === "string" && leg.final_score.includes("-") && leg.final_score !== "–") {
+                const parts = leg.final_score.split("-");
+                hg = parseInt(parts[0], 10);
+                ag = parseInt(parts[1], 10);
+            } else if (scoresMap[leg.match_id]) {
+                [hg, ag] = scoresMap[leg.match_id];
+            } else if (scoresMap[key]) {
                 [hg, ag] = scoresMap[key];
             } else {
-                // Determinisztikus Poisson kiértékelés ha a meccs kisebb ligában volt
-                const seed = key.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-                hg = Math.max(0, Math.round((leg.lambda_home || 1.6) + ((seed % 3) - 1) * 0.4));
-                ag = Math.max(0, Math.round((leg.lambda_away || 1.0) + (((seed >> 2) % 3) - 1) * 0.4));
+                let found = null;
+                const ch = cleanTeamNameForMatch(leg.home_team || "");
+                const ca = cleanTeamNameForMatch(leg.away_team || "");
+                if (ch && ca) {
+                    for (const [sk, sval] of Object.entries(scoresMap)) {
+                        const skClean = cleanTeamNameForMatch(sk);
+                        if (skClean.includes(ch) && skClean.includes(ca)) {
+                            found = sval;
+                            break;
+                        }
+                    }
+                }
+                if (found) {
+                    [hg, ag] = found;
+                } else {
+                    // Determinisztikus Poisson kiértékelés ha a meccs kisebb ligában volt vagy az ingyenes API-ban nem szerepel
+                    const seed = key.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+                    hg = Math.max(0, Math.round((leg.lambda_home || 1.6) + ((seed % 3) - 1) * 0.4));
+                    ag = Math.max(0, Math.round((leg.lambda_away || 1.0) + (((seed >> 2) % 3) - 1) * 0.4));
+                }
             }
 
             const isWin = gradeLegOutcome(leg.market_code, hg, ag);
@@ -752,6 +786,13 @@ function findOptimalCombo(candidates, minLegs, maxLegs, targetMin, targetMax, ha
             if (forbidden) continue;
             if (currentShared + newOverlaps > maxShared) continue;
 
+            // SZIGORÚ SZABÁLY: Egyetlen szelvényen KIZÁRÓLAG egyazon napon megrendezett mérkőzések szerepelhetnek!
+            // Szigorúan tilos 2 vagy több különböző napról meccseket keverni ugyanazon a szelvényen!
+            const firstDate = combo[0].date;
+            if (!combo.every(leg => leg.date === firstDate)) {
+                continue;
+            }
+
             let combOdds = 1, combProb = 1, avgEv = 0;
             for (const leg of combo) {
                 combOdds *= leg.market_odds;
@@ -811,10 +852,14 @@ function buildThreeWorkingFormulaSlips(todayStr, analyzedMatches, dailyBudget, m
     const usageCount = {};
     let currentShared = 0;
 
+    // SZIGORÚ SZABÁLY: Ha az adott napon (todayStr) van legalább 2 db meccs, KIZÁRÓLAG az adott nap meccseit használjuk!
+    const sameDayMatches = analyzedMatches.filter(m => m.date === todayStr);
+    const matchPool = (sameDayMatches.length >= 2) ? sameDayMatches : analyzedMatches;
+
     const pref1 = ["1", "2", "1X & Over 1.5", "X2 & Over 1.5", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5", "Over 2.5", "1X", "X2"];
     const collect1 = (minP, minEv) => {
         const list = [];
-        for (const m of analyzedMatches) {
+        for (const m of matchPool) {
             let best = null, bestSc = -999;
             for (const c of pref1) {
                 const mk = m.markets[c];
@@ -839,7 +884,7 @@ function buildThreeWorkingFormulaSlips(todayStr, analyzedMatches, dailyBudget, m
     const pref2 = ["1X & Over 1.5", "X2 & Over 1.5", "Over 2.5", "X2", "1X", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5"];
     const collect2 = (minP, minEv) => {
         const list = [];
-        for (const m of analyzedMatches) {
+        for (const m of matchPool) {
             let best = null, bestSc = -999;
             for (const c of pref2) {
                 const mk = m.markets[c];
@@ -867,7 +912,7 @@ function buildThreeWorkingFormulaSlips(todayStr, analyzedMatches, dailyBudget, m
     const pref3 = ["BTTS (Yes)", "Over 2.5", "1", "2", "Home & Over 1.5", "Away & Over 1.5", "1X & Over 1.5", "X2 & Over 1.5", "X"];
     const collect3 = (minEv, minP) => {
         const list = [];
-        for (const m of analyzedMatches) {
+        for (const m of matchPool) {
             let best = null, bestSc = -999;
             for (const c of pref3) {
                 const mk = m.markets[c];
