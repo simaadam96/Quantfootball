@@ -973,17 +973,10 @@ function runHasForbiddenLeagues(runObj) {
     ];
     for (const s of runObj.recommendation.slips) {
         if (!s || !Array.isArray(s.legs)) continue;
-        const firstDate = s.legs[0]?.date;
         for (const l of s.legs) {
             if (!l) continue;
-            if (l.league && !isAllowedEliteLeague(l.league)) {
-                return true;
-            }
             const mLow = String(l.match_name || "").toLowerCase();
             if (fakeNov3Matches.some(fm => mLow.includes(fm))) {
-                return true;
-            }
-            if (firstDate && l.date && l.date !== firstDate) {
                 return true;
             }
         }
