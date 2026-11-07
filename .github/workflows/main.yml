@@ -1,0 +1,50 @@
+name: QUANTFOOTBALL PRO - 0-24 Felhos Automatika (08:00 Tervezet + Meccs Elotti 1 Oras Veglegesites)
+
+on:
+  schedule:
+    # 1. LEPCSO: Minden reggel 08:00-kor (magyar ido szerint / 07:00 UTC) -> Tegnapi szelvenyek kiertekelese + Mai TERVEZET (DRAFT) szelvenyek
+    - cron: '0 7 * * *'
+    # 2. LEPCSO: Delutan es este orankent (:45-kor) ellenorzi, hogy a legkorabbi szelveny-meccs 1 oran belul kezdodik-e, es lefuttatja a Veglegesito Melyelemzest
+    - cron: '45 12,13,14,15,16,17,18,19 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Futtatasi mod (auto = automatikus idozites, draft = reggeli tervezet, final = meccs elotti 1 oras veglegesites)'
+        required: false
+        default: 'auto'
+
+permissions:
+  contents: write
+
+jobs:
+  run-daily-quant-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tarolo lekerese (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Node.js 20 kornyezet beallitasa
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Kvantitativ Szelvenygenerator es Kiertekelo futtatasa
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'auto' }}"
+          node cloud_runner.js --mode=$MODE
+
+      - name: Frissitett szelvenyek es bankroll mentese a weboldalra (Git Commit & Push)
+        run: |
+          git config user.name "QuantFootball-AutoBot"
+          git config user.email "autobot@quantfootball.local"
+          git add data/state.json data/auto_state.js state.json auto_state.js
+          if git diff --staged --quiet; then
+            echo "Nincs valtozas az allapotfajlokban."
+          else
+            git commit -m "Automatikus napi szelveny es bankroll frissites ($(date +'%Y-%m-%d %H:%M'))"
+            git push
+          fi
