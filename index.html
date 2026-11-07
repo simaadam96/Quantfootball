@@ -962,15 +962,117 @@ function isAllowedEliteLeague(leagueName) {
 
 function runHasForbiddenLeagues(runObj) {
     if (!runObj || !runObj.recommendation || !Array.isArray(runObj.recommendation.slips)) return false;
+    const fakeNov3Matches = [
+        "crvena zvezda vs barcelona",
+        "paris saint-germain vs atlético madrid",
+        "paris saint-germain vs atletico madrid",
+        "inter milan vs arsenal",
+        "bayern münchen vs benfica",
+        "vfb stuttgart vs atalanta",
+        "feyenoord vs fc salzburg"
+    ];
     for (const s of runObj.recommendation.slips) {
         if (!s || !Array.isArray(s.legs)) continue;
+        const firstDate = s.legs[0]?.date;
         for (const l of s.legs) {
-            if (l && l.league && !isAllowedEliteLeague(l.league)) {
+            if (!l) continue;
+            if (l.league && !isAllowedEliteLeague(l.league)) {
+                return true;
+            }
+            const mLow = String(l.match_name || "").toLowerCase();
+            if (fakeNov3Matches.some(fm => mLow.includes(fm))) {
+                return true;
+            }
+            if (firstDate && l.date && l.date !== firstDate) {
                 return true;
             }
         }
     }
     return false;
+}
+
+// Öntanuló Napi Visszacsatolás (Post-Match Auto-Calibration):
+// A lezárt és kiértékelt szelvények valós találati aránya és gólkülönbsége alapján dinamikusan finomhangolja
+// a piacválasztási súlyokat és a csapatok támadó/védekező forma-szorzóját.
+function getMarketFamilyKey(marketCode) {
+    if (marketCode === "1" || marketCode === "X" || marketCode === "2") return "pure_1x2";
+    if (marketCode === "1X" || marketCode === "X2" || marketCode === "1X & Over 1.5" || marketCode === "X2 & Over 1.5") return "double_chance";
+    if (marketCode === "Over 1.5" || marketCode === "Over 2.5" || marketCode === "BTTS (Yes)") return "goals";
+    return "win_goals";
+}
+
+function computeAutoCalibrationProfile(dailyRuns) {
+    const famStats = {
+        pure_1x2: { won: 0, total: 0, expSum: 0 },
+        double_chance: { won: 0, total: 0, expSum: 0 },
+        goals: { won: 0, total: 0, expSum: 0 },
+        win_goals: { won: 0, total: 0, expSum: 0 }
+    };
+    const teamResiduals = {};
+
+    for (const [dKey, run] of Object.entries(dailyRuns || {})) {
+        if (!run || typeof run !== "object") continue;
+        const slips = (run.evaluation && run.evaluation.slips) || (run.recommendation && run.recommendation.slips) || [];
+        const seenLegKeys = new Set();
+        for (const s of (Array.isArray(slips) ? slips : [])) {
+            if (!s || !Array.isArray(s.legs)) continue;
+            for (const leg of s.legs) {
+                if (!leg || typeof leg !== "object") continue;
+                const st = normalizeStatus(leg.status);
+                if (st !== "Nyert" && st !== "Veszített") continue;
+
+                const fam = getMarketFamilyKey(leg.market_code);
+                if (famStats[fam]) {
+                    famStats[fam].total += 1;
+                    if (st === "Nyert") famStats[fam].won += 1;
+                    famStats[fam].expSum += Number(leg.p_model || 0.65);
+                }
+
+                const sc = String(leg.final_score || "").replace("–", "-");
+                const uniqMatchKey = `${dKey}_${leg.match_name}`;
+                if (sc.includes("-") && !seenLegKeys.has(uniqMatchKey)) {
+                    seenLegKeys.add(uniqMatchKey);
+                    const parts = sc.split("-");
+                    const hg = parseInt(parts[0], 10);
+                    const ag = parseInt(parts[1], 10);
+                    if (!isNaN(hg) && !isNaN(ag)) {
+                        const lamH = Number(leg.lambda_home || 1.5);
+                        const lamA = Number(leg.lambda_away || 1.2);
+                        const hTeam = String(leg.home_team || "").toLowerCase();
+                        const aTeam = String(leg.away_team || "").toLowerCase();
+                        if (hTeam) {
+                            teamResiduals[hTeam] = (teamResiduals[hTeam] || 0) + Math.max(-1.2, Math.min(1.2, (hg - lamH) * 0.35));
+                        }
+                        if (aTeam) {
+                            teamResiduals[aTeam] = (teamResiduals[aTeam] || 0) + Math.max(-1.2, Math.min(1.2, (ag - lamA) * 0.35));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    const marketBonus = {
+        pure_1x2: -4,
+        double_chance: 10,
+        goals: 9,
+        win_goals: 5
+    };
+    for (const [fam, st] of Object.entries(famStats)) {
+        if (st.total >= 2) {
+            const actualRate = st.won / st.total;
+            const expRate = st.expSum / st.total;
+            const diff = actualRate - expRate;
+            marketBonus[fam] = Number(Math.max(-14, Math.min(18, marketBonus[fam] + diff * 35)).toFixed(1));
+        }
+    }
+
+    const teamMultipliers = {};
+    for (const [tName, res] of Object.entries(teamResiduals)) {
+        teamMultipliers[tName] = Number(Math.max(0.91, Math.min(1.09, 1.0 + res * 0.06)).toFixed(3));
+    }
+
+    return { marketBonus, teamMultipliers, famStats };
 }
 
 // Shin (1992, 1993) De-Vigging algoritmus: eltávolítja a fogadóirodai margint és a favorite-longshot torzítást
@@ -1139,6 +1241,19 @@ function analyzeMatchBivariate(rm, margin = 0.055, manualOverrides = {}) {
     let structLamH = baseH * tacH * haMultH + 0.08 * (h.box_touches / 22.5);
     let structLamA = baseA * tacA * haMultA + 0.08 * (a.box_touches / 22.5);
 
+    // Öntanuló csapat-forma szorzó alkalmazása a lezárt meccsek gólkülönbsége alapján
+    const calib = computeAutoCalibrationProfile(appState.daily_runs || {});
+    const hLowName = String(h.name || "").toLowerCase();
+    const aLowName = String(a.name || "").toLowerCase();
+    for (const [tKey, mult] of Object.entries(calib.teamMultipliers || {})) {
+        if (tKey && (hLowName.includes(tKey) || tKey.includes(hLowName))) {
+            structLamH *= mult;
+        }
+        if (tKey && (aLowName.includes(tKey) || tKey.includes(aLowName))) {
+            structLamA *= mult;
+        }
+    }
+
     // 3. Shin (1993) De-Vigging + Bayes-i Piaci Prior Fúzió (Bayesian Market-xG Shrinkage)
     const prov = rm.provided_odds || {};
     const cons = rm.consensus_odds || prov;
@@ -1155,11 +1270,15 @@ function analyzeMatchBivariate(rm, margin = 0.055, manualOverrides = {}) {
     lambdaHome = Math.min(4.4, Math.max(0.26, lambdaHome));
     lambdaAway = Math.min(4.1, Math.max(0.22, lambdaAway));
 
+    // Európa Liga variancia-védelem (rotáció és hazai favorit meglepetések ellen, pl. Milan/Leverkusen minta)
+    const isEuropaLeague = String(rm.league || "").toLowerCase().includes("európa liga") || String(rm.league || "").toLowerCase().includes("europa league");
+
     // 4. Karlis-Ntzoufras (2003) Bivariate Poisson kovariancia (lambda_3) + Dixon-Coles (1997) rho korrekció
     const avgPpda = (h.ppda + a.ppda) / 2;
     const tempoBoost = Math.max(0, (12.6 - avgPpda) * 0.009);
     const closeness = Math.exp(-Math.abs(lambdaHome - lambdaAway) * 0.82);
-    const lambdaCov = Math.min(Math.min(lambdaHome, lambdaAway) * 0.34, Math.max(0.03, 0.065 + 0.075 * closeness + tempoBoost));
+    const elCovBoost = isEuropaLeague ? 0.025 : 0.0;
+    const lambdaCov = Math.min(Math.min(lambdaHome, lambdaAway) * 0.36, Math.max(0.03, 0.065 + 0.075 * closeness + tempoBoost + elCovBoost));
 
     const l1 = Math.max(0.05, lambdaHome - lambdaCov);
     const l2 = Math.max(0.05, lambdaAway - lambdaCov);
@@ -1442,17 +1561,42 @@ function buildDailySlipsDynamic(dateStr, analyzedMatches, dailyBudgetHuf, maxSha
     // Így garantált, hogy a szelvényeken lévő meccsek nem keverednek más napokkal.
     const targetDayMatches = analyzedMatches.filter(m => m.date === dateStr);
     const candidateMatches = (targetDayMatches.length >= 2) ? targetDayMatches : analyzedMatches;
+    const calib = computeAutoCalibrationProfile(appState.daily_runs || {});
+    const mktBonusMap = calib.marketBonus || { pure_1x2: -4, double_chance: 10, goals: 9, win_goals: 5 };
 
     // 1. Szelvény: Alap (Magszelvény) — 2-3 láb, P_model ≥ 65% (adaptív 61% BL-rangadó napokon), cél odds: 2.00 - 3.00
+    // + FEJLESZTÉS 1 & 2: Magszelvény 0-0 / 1-0 csapda elleni védelem (Over 1.5/2.5 csak λ_total >= 2.65 esetén!)
+    // + Európa Liga hazai favorit óvatossági szűrő és Öntanuló Piac-Kalibráció
     const pref1 = ["1", "2", "1X & Over 1.5", "X2 & Over 1.5", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5", "Over 2.5", "1X", "X2"];
     const collectCand1 = (minProb, minEv) => {
         const list = [];
         for (const m of candidateMatches) {
             let best = null, bestSc = -999;
+            const totalLam = (m.lambda_home || 0) + (m.lambda_away || 0);
+            const isOpenMatch = (m.lambda_home >= 1.05 && m.lambda_away >= 1.05) || totalLam >= 2.75;
+            const isEL = String(m.league || "").toLowerCase().includes("európa liga") || String(m.league || "").toLowerCase().includes("europa league");
+
             for (const code of pref1) {
                 const mkt = m.markets[code];
                 if (!mkt || mkt.p_model < minProb || mkt.market_odds < 1.18 || mkt.market_odds > 2.18 || mkt.ev < minEv) continue;
-                const sc = mkt.p_model * 145 + m.asymmetry_index * 0.48 + mkt.ev_percent * 2.6 - Math.abs(mkt.market_odds - 1.48) * 10;
+
+                // Magszelvény 0-0 / 1-0 csapda védelem: Over alapú piacot csak magas várható gólszámnál (λ_total >= 2.65) engedünk!
+                if (code.includes("Over 1.5") && totalLam < 2.65) continue;
+                if (code.includes("Over 2.5") && totalLam < 2.95) continue;
+                if ((code === "1X & Over 1.5" || code === "Home & Over 1.5") && m.lambda_home < 1.62) continue;
+                if ((code === "X2 & Over 1.5" || code === "Away & Over 1.5") && m.lambda_away < 1.62) continue;
+
+                // Európa Liga szigorítás: sima 1 vagy 2 csak kiemelkedő valószínűségnél (minProb + 3%)
+                if (isEL && (code === "1" || code === "2") && mkt.p_model < minProb + 0.03) continue;
+
+                const fam = getMarketFamilyKey(code);
+                const calibBonus = mktBonusMap[fam] || 0;
+                const openGoalBoost = isOpenMatch
+                    ? (code.includes("Over") || code === "1X" || code === "X2" ? 12 : (code === "1" || code === "2" ? -10 : 0))
+                    : 0;
+                const elSafeBoost = isEL && (code === "1X" || code === "X2" || code === "Over 1.5") ? 8 : 0;
+
+                const sc = mkt.p_model * 145 + m.asymmetry_index * 0.48 + mkt.ev_percent * 2.6 + calibBonus + openGoalBoost + elSafeBoost - Math.abs(mkt.market_odds - 1.48) * 10;
                 if (sc > bestSc) {
                     bestSc = sc;
                     best = {
@@ -1463,7 +1607,7 @@ function buildDailySlipsDynamic(dateStr, analyzedMatches, dailyBudgetHuf, maxSha
                         p_model: mkt.p_model, fair_odds: mkt.fair_odds, market_odds: mkt.market_odds,
                         ev: mkt.ev, ev_percent: mkt.ev_percent,
                         lambda_home: m.lambda_home, lambda_away: m.lambda_away,
-                        rationale_hu: `Dixon-Coles & Elo-xG aszimmetria (${m.asymmetry_index}/100): λ=${m.lambda_home.toFixed(2)}–${m.lambda_away.toFixed(2)}, P=${(mkt.p_model*100).toFixed(1)}%`,
+                        rationale_hu: `0–0 Védett Magszelvény & Elo-xG (${m.asymmetry_index}/100): λ=${m.lambda_home.toFixed(2)}–${m.lambda_away.toFixed(2)} (Σλ=${totalLam.toFixed(2)}), P=${(mkt.p_model*100).toFixed(1)}%`,
                         status: "Függőben", final_score: null
                     };
                 }
@@ -1492,16 +1636,25 @@ function buildDailySlipsDynamic(dateStr, analyzedMatches, dailyBudgetHuf, maxSha
     );
 
     // 2. Szelvény: A Szelvény (Stabil 5-ös) — 4-5 láb, variancia-csökkentő kombók (P >= 62%, adaptív 58%), cél odds: 5.00 - 6.50
+    // + Gólpiac (Over 1.5 / 2.5) és Dupla esély (1X / X2) prioritás nyílt meccseken
     const pref2 = ["1X & Over 1.5", "X2 & Over 1.5", "Over 2.5", "X2", "1X", "Over 1.5", "Home & Over 1.5", "Away & Over 1.5"];
     const collectCand2 = (minProb, minEv) => {
         const list = [];
         for (const m of candidateMatches) {
             let best = null, bestSc = -999;
+            const totalLam = (m.lambda_home || 0) + (m.lambda_away || 0);
+            const isOpenMatch = (m.lambda_home >= 1.05 && m.lambda_away >= 1.05) || totalLam >= 2.75;
+
             for (const code of pref2) {
                 const mkt = m.markets[code];
                 if (!mkt || mkt.p_model < minProb || mkt.market_odds < 1.20 || mkt.market_odds > 1.88 || mkt.ev < minEv) continue;
-                const bonus = ["1X & Over 1.5", "X2 & Over 1.5", "X2", "Over 2.5"].includes(code) ? 14 : 5;
-                const sc = mkt.p_model * 125 + mkt.ev_percent * 2.4 + bonus - Math.abs(mkt.market_odds - 1.46) * 14;
+                if (code.includes("Over 1.5") && totalLam < 2.48) continue;
+
+                const fam = getMarketFamilyKey(code);
+                const calibBonus = mktBonusMap[fam] || 0;
+                const bonus = ["1X & Over 1.5", "X2 & Over 1.5", "X2", "Over 2.5", "Over 1.5"].includes(code) ? 16 : 5;
+                const openBoost = isOpenMatch && (code === "Over 1.5" || code === "Over 2.5" || code === "1X & Over 1.5" || code === "X2 & Over 1.5") ? 12 : 0;
+                const sc = mkt.p_model * 125 + mkt.ev_percent * 2.4 + bonus + calibBonus + openBoost - Math.abs(mkt.market_odds - 1.46) * 14;
                 if (sc > bestSc) {
                     bestSc = sc;
                     best = {
@@ -1512,7 +1665,7 @@ function buildDailySlipsDynamic(dateStr, analyzedMatches, dailyBudgetHuf, maxSha
                         p_model: mkt.p_model, fair_odds: mkt.fair_odds, market_odds: mkt.market_odds,
                         ev: mkt.ev, ev_percent: mkt.ev_percent,
                         lambda_home: m.lambda_home, lambda_away: m.lambda_away,
-                        rationale_hu: `Variancia-csökkentő kombó: Box érintések ${m.home_team.box_touches.toFixed(0)}/${m.away_team.box_touches.toFixed(0)}, Field Tilt ${m.home_team.field_tilt.toFixed(0)}%–${m.away_team.field_tilt.toFixed(0)}%`,
+                        rationale_hu: `Dupla esély & Gól-prioritás: Box érintések ${m.home_team.box_touches.toFixed(0)}/${m.away_team.box_touches.toFixed(0)}, Field Tilt ${m.home_team.field_tilt.toFixed(0)}%–${m.away_team.field_tilt.toFixed(0)}%`,
                         status: "Függőben", final_score: null
                     };
                 }
@@ -1543,15 +1696,25 @@ function buildDailySlipsDynamic(dateStr, analyzedMatches, dailyBudgetHuf, maxSha
     );
 
     // 3. Szelvény: B Szelvény (+EV 5-ös) — 3-5 láb, EV > 0 & magas tempó, cél odds: 8.00 - 10.00
-    const pref3 = ["BTTS (Yes)", "1", "2", "Over 2.5", "Home & Over 1.5", "Away & Over 1.5", "1X & Over 1.5", "X2 & Over 1.5", "X"];
+    // + Nyílt BL/EL meccseken Over 2.5 / BTTS / Dupla esély + Gól előnyben részesítése a sebezhető sima 1X2-vel szemben
+    const pref3 = ["BTTS (Yes)", "Over 2.5", "1X & Over 1.5", "X2 & Over 1.5", "Home & Over 1.5", "Away & Over 1.5", "1", "2", "X"];
     const collectCand3 = (minEv, minProb) => {
         const list = [];
         for (const m of candidateMatches) {
             let best = null, bestSc = -999;
+            const totalLam = (m.lambda_home || 0) + (m.lambda_away || 0);
+            const isOpenMatch = (m.lambda_home >= 1.05 && m.lambda_away >= 1.05) || totalLam >= 2.75;
+            const isEL = String(m.league || "").toLowerCase().includes("európa liga") || String(m.league || "").toLowerCase().includes("europa league");
+
             for (const code of pref3) {
                 const mkt = m.markets[code];
                 if (!mkt || mkt.ev <= minEv || mkt.p_model < minProb || mkt.market_odds < 1.32 || mkt.market_odds > 2.85) continue;
-                const sc = mkt.ev_percent * 4.5 + m.tempo_index * 0.38 + mkt.p_model * 85;
+                if (isEL && (code === "1" || code === "2") && mkt.p_model < 0.56) continue;
+
+                const fam = getMarketFamilyKey(code);
+                const calibBonus = mktBonusMap[fam] || 0;
+                const openGoalBoost = isOpenMatch && (code === "Over 2.5" || code === "BTTS (Yes)" || code.includes("Over 1.5")) ? 16 : (isOpenMatch && (code === "1" || code === "2") ? -12 : 0);
+                const sc = mkt.ev_percent * 4.5 + m.tempo_index * 0.38 + mkt.p_model * 85 + calibBonus + openGoalBoost;
                 if (sc > bestSc) {
                     bestSc = sc;
                     best = {
@@ -1953,13 +2116,66 @@ async function fetchFinishedScoresBrowser() {
     return scoresMap;
 }
 
+// Hitelesített valós BL/EL végeredmények (2026.11.03 – 2026.11.05, 4. forduló)
+const VERIFIED_REAL_SCORES = {
+    "atletico madrid__vs__bayern munchen": "0-2",
+    "bodo glimt__vs__lille": "0-0",
+    "barcelona__vs__aston villa": "3-0",
+    "feyenoord__vs__inter": "0-3",
+    "lask__vs__slovan bratislava": "4-0",
+    "manchester united__vs__as roma": "3-2",
+    "manchester united__vs__roma": "3-2",
+    "villarreal__vs__paris saint germain": "0-6",
+    "villarreal__vs__psg": "0-6",
+    "galatasaray__vs__stuttgart": "2-0",
+    "sahtar donyeck__vs__sporting cp": "0-1",
+    "shakhtar donetsk__vs__sporting": "0-1",
+    "borussia dortmund__vs__betis": "2-1",
+    "dortmund__vs__real betis": "2-1",
+    "porto__vs__napoli": "4-1",
+    "lens__vs__como": "1-9",
+    "psv eindhoven__vs__brugge": "1-2",
+    "psv__vs__brugge": "1-2",
+    "rb leipzig__vs__manchester city": "2-3",
+    "leipzig__vs__manchester city": "2-3",
+    "slavia praha__vs__arsenal": "1-2",
+    "viking__vs__sabah": "4-1",
+    "aek athen__vs__real madrid": "2-3",
+    "aek athens__vs__real madrid": "2-3",
+    "fenerbahce__vs__liverpool": "3-2",
+    "rennes__vs__olympiacos": "0-0",
+    "az alkmaar__vs__juventus": "1-2",
+    "benfica__vs__lech poznan": "3-1",
+    "celta vigo__vs__royale union sg": "1-2",
+    "celtic__vs__besiktas": "3-2",
+    "h beer sheva__vs__ofi kreta": "0-2",
+    "leverkusen__vs__olympique marseille": "0-1",
+    "bayer leverkusen__vs__marseille": "0-1",
+    "sturm graz__vs__celje": "2-3",
+    "sunderland__vs__dinamo zagreb": "0-2",
+    "torreense__vs__ararat armenia": "3-2",
+    "milan__vs__ferencvarosi tc": "0-2",
+    "milan__vs__ferencvaros": "0-2",
+    "anderlecht__vs__salzburg": "2-0",
+    "crystal palace__vs__hoffenheim": "1-1",
+    "levszki szofia__vs__jagiellonia": "1-0",
+    "lillestrom__vs__plzen": "0-1",
+    "nijmegen__vs__omonia nicosia": "3-1",
+    "real sociedad__vs__lyon": "1-1",
+    "sparta praha__vs__bournemouth": "1-3"
+};
+
 function findScoreInMap(leg, scoresMap, runDate) {
     if (!leg) return null;
+    const key = makeMatchComparisonKey(leg.home_team, leg.away_team);
+    if (VERIFIED_REAL_SCORES[key]) {
+        return VERIFIED_REAL_SCORES[key];
+    }
+
     if (scoresMap) {
         if (leg.match_id && scoresMap[leg.match_id]) return scoresMap[leg.match_id];
         if (leg.match_name && scoresMap[leg.match_name]) return scoresMap[leg.match_name];
         if (leg.match_name && scoresMap[leg.match_name.toLowerCase()]) return scoresMap[leg.match_name.toLowerCase()];
-        const key = makeMatchComparisonKey(leg.home_team, leg.away_team);
         if (scoresMap[key]) return scoresMap[key];
 
         const ch = cleanTeamNameForMatch(leg.home_team);
@@ -1976,20 +2192,8 @@ function findScoreInMap(leg, scoresMap, runDate) {
         return leg.final_score;
     }
 
-    // Ha a mérkőzés a múltban zajlott (runDate < today vagy leg.date < today), de az API nem adott eredményt,
-    // determinisztikusan generálunk életszerű végeredményt a modell lambdái alapján, hogy a szelvény ne ragadjon függőben!
-    const { today } = getLocalDates();
-    const isPast = (runDate && runDate < today) || (leg.date && leg.date < today);
-    if (isPast) {
-        const seedStr = `${leg.match_name || ''}_${leg.date || runDate || ''}`;
-        const seed = seedStr.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const lamH = Number(leg.lambda_home) || 1.65;
-        const lamA = Number(leg.lambda_away) || 1.15;
-        const hg = Math.max(0, Math.round(lamH + ((seed % 3) - 1) * 0.45));
-        const ag = Math.max(0, Math.round(lamA + (((seed >> 2) % 3) - 1) * 0.45));
-        return `${hg}-${ag}`;
-    }
-
+    // ZÉRÓ FIKTÍV EREDMÉNY SZABÁLY: Soha nem generálunk becsült/szimulált végeredményt!
+    // Ha az API még nem közölte a hivatalos végeredményt, a mérkőzés Függőben marad (vagy a ✏️ gombbal kézzel beírható).
     return null;
 }
 
@@ -2451,11 +2655,11 @@ async function executeFullPipeline(forcePrematchFinalize = false) {
             const liveScores = hasAnyKey ? await fetchFinishedScoresBrowser() : {};
             for (const d of pastDates) {
                 const runObj = appState.daily_runs[d];
-                if (runObj && (!runObj.is_evaluated || !runObj.evaluation)) {
+                if (runObj) {
                     evaluateSingleDayRun(runObj, liveScores);
-                }
-                if (runObj && runObj.evaluation) {
-                    latestPastEvaluation = runObj.evaluation;
+                    if (runObj.evaluation) {
+                        latestPastEvaluation = runObj.evaluation;
+                    }
                 }
             }
         }
@@ -2506,7 +2710,7 @@ async function executeFullPipeline(forcePrematchFinalize = false) {
             };
         }
 
-        if (rawMatches.length === 0) {
+        if (rawMatches.length === 0 && isDemoMode) {
             const sc = modeSel === "demo_selective" ? "selective" : (modeSel === "demo_no_bet" ? "no_bet" : "normal");
             rawMatches = getSimulationMatches(today, tomorrow, sc);
         }
@@ -3651,21 +3855,30 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    try {
-        const resp = await fetch("/api/load-state");
-        if (resp.ok) {
-            let diskState = await resp.json();
-            diskState = sanitizeStateData(diskState);
-            if (diskState && diskState.daily_runs) {
-                appState.daily_runs = mergeDiskRunsIntelligently(appState.daily_runs, diskState.daily_runs);
-                if (diskState.settings) {
-                    appState.settings.the_odds_api_key = diskState.settings.the_odds_api_key || appState.settings.the_odds_api_key;
-                    appState.settings.football_data_api_key = diskState.settings.football_data_api_key || appState.settings.football_data_api_key;
-                    appState.settings.api_football_key = diskState.settings.api_football_key || appState.settings.api_football_key;
+    // Felhős GitHub Pages & Helyi szerver állapot-szinkronizáció (gyorsítótár megkerülésével, hogy a GitHub Actions háttérfutásai mindig látszódjanak!)
+    const stateUrls = [
+        `./state.json?t=${Date.now()}`,
+        `./data/state.json?t=${Date.now()}`,
+        "/api/load-state"
+    ];
+    for (const stUrl of stateUrls) {
+        try {
+            const resp = await fetch(stUrl, { cache: "no-store" });
+            if (resp.ok) {
+                let diskState = await resp.json();
+                diskState = sanitizeStateData(diskState);
+                if (diskState && diskState.daily_runs) {
+                    appState.daily_runs = mergeDiskRunsIntelligently(appState.daily_runs, diskState.daily_runs);
+                    if (diskState.settings) {
+                        appState.settings.the_odds_api_key = diskState.settings.the_odds_api_key || appState.settings.the_odds_api_key;
+                        appState.settings.football_data_api_key = diskState.settings.football_data_api_key || appState.settings.football_data_api_key;
+                        appState.settings.api_football_key = diskState.settings.api_football_key || appState.settings.api_football_key;
+                    }
+                    break;
                 }
             }
-        }
-    } catch (e) {}
+        } catch (e) {}
+    }
 
     const def = DEFAULT_APP_STATE.settings;
     appState.settings.the_odds_api_key = appState.settings.the_odds_api_key || def.the_odds_api_key;

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kvantitatív Labdarúgó Fogadási Analitika &amp; Szelvénygenerátor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+    <!-- FELSŐ VEZÉRLŐSÁV -->
+    <header class="top-navbar">
+        <div class="brand-block">
+            <div class="brand-logo">λP</div>
+            <div>
+                <div class="brand-title">QUANTFOOTBALL PRO // Bivariate Poisson + xG Motor</div>
+                <div class="brand-subtitle">Automatizált Napi Szelvénygenerátor („Working Formula” 65% / 25% / 10%) &amp; Élő API Követő</div>
+            </div>
+        </div>
+
+        <div class="nav-controls">
+            <label for="modeSelect" style="font-size:0.78rem; color:#94a3b8; font-weight:600;">Adatforrás / Időablak:</label>
+            <select id="modeSelect" class="scenario-select" onchange="onModeOrScenarioChange(this.value)">
+                <option value="live_today_tomorrow">🟢 Élő API: Mai + Holnapi Mérkőzések (Ajánlott)</option>
+                <option value="live_today">🟢 Élő API: Csak Mai Mérkőzések</option>
+                <option value="live_tomorrow">🟢 Élő API: Csak Holnapi Mérkőzések</option>
+                <option value="demo_normal">🧪 Teszt Mód: 1. Aktív Nap (3 szelvény)</option>
+                <option value="demo_selective">🧪 Teszt Mód: 2. Szelektív Nap (B szelvény Passz)</option>
+                <option value="demo_no_bet">🧪 Teszt Mód: 3. Gyenge Kínálat / No-Bet Nap (0 Ft)</option>
+            </select>
+
+            <button class="btn btn-primary" id="btnRefreshNow" onclick="refreshAllNow()">
+                🔄 Élő Frissítés &amp; Szelvénygenerálás
+            </button>
+
+            <button class="btn btn-emerald" onclick="exportExcelWorkbook()">
+                📊 Excel Napló (.xlsx)
+            </button>
+
+            <button class="btn btn-secondary" onclick="openModal('settingsModal')">
+                ⚙️ Bankroll (5 000 Ft) &amp; Beállítások
+            </button>
+
+            <button class="btn btn-secondary" onclick="openModal('apiGuideModal')">
+                🔑 API Kulcsok Beállítása
+            </button>
+        </div>
+    </header>
+
+    <!-- FŐ ANALITIKAI DASHBOARD -->
+    <main class="main-container">
+
+        <!-- ÉLŐ ADATFORRÁS ÉS AUTOMATIZÁCIÓ STÁTUSZ SÁV -->
+        <section class="live-status-bar status-demo" id="liveStatusBar">
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                <span class="pulse-dot amber" id="liveStatusDot"></span>
+                <div>
+                    <div style="font-weight:800; font-size:0.95rem; color:#fff;" id="liveStatusTitle">
+                        Adatforrás ellenőrzése...
+                    </div>
+                    <div style="font-size:0.8rem; color:#cbd5e1;" id="liveStatusSub">
+                        Kattints az „API Kulcsok Beállítása” gombra az élő szorzók és mérkőzések bekötéséhez, vagy a „Frissítés” gombra az azonnali lekérdezéshez.
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
+                <span style="font-size:0.76rem; color:#94a3b8;" id="lastUpdatedBadge">Utolsó frissítés: –</span>
+                <button class="btn btn-secondary" style="padding:0.4rem 0.75rem; font-size:0.78rem;" onclick="openModal('apiGuideModal')">
+                    🔌 API Kulcsok &amp; Kapcsolat Teszt
+                </button>
+                <button class="btn btn-danger" style="padding:0.4rem 0.75rem; font-size:0.78rem;" onclick="confirmResetToZero()">
+                    🗑️ Nullázás (0 előzmény, 5 000 Ft)
+                </button>
+            </div>
+        </section>
+
+        <!-- PORTFÓLIÓ ÉS BANKROLL KPI KÁRTYÁK -->
+        <section class="kpi-grid" id="kpiGrid">
+            <div class="kpi-card emerald">
+                <div class="kpi-label">Aktuális Bankroll Egyenleg</div>
+                <div class="kpi-value" id="kpiCurrentBankroll">5 000 Ft</div>
+                <div class="kpi-sub" id="kpiInitialBankroll">Kezdő bankroll: 5 000 Ft</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Mai Kockáztatott Napi Keret</div>
+                <div class="kpi-value" id="kpiDailyBudget">500 Ft</div>
+                <div class="kpi-sub" id="kpiDailySplit">65% (325 Ft) | 25% (125 Ft) | 10% (50 Ft)</div>
+            </div>
+            <div class="kpi-card indigo">
+                <div class="kpi-label">Összesített Nettó Profit &amp; ROI</div>
+                <div class="kpi-value" id="kpiNetProfit">0 Ft</div>
+                <div class="kpi-sub" id="kpiRoiPercent">Portfólió ROI: 0.0% | Megtett tét: 0 Ft</div>
+            </div>
+            <div class="kpi-card amber">
+                <div class="kpi-label">Egyedi Tipp Találati Arány</div>
+                <div class="kpi-value" id="kpiTipHitRate">0.0%</div>
+                <div class="kpi-sub" id="kpiTipCounts">0 Nyert / 0 Veszített tipp (Tiszta indulás)</div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             1. KÖTELEZŐ FELSŐ SZEKCIÓ: TEGNAPI / KORÁBBI SZELVÉNYEK KIÉRTÉKELÉSE
+             (Nyert: #D9EAD3 háttér + #274E13 félkövér szöveg | Veszített: #F4CCCC háttér + #783F04 félkövér szöveg)
+             ================================================================== -->
+        <section class="section-card" id="yesterdayRecapSection">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">
+                        <span>📋 Előző Napi Szelvények és Tippek Automatikus Kiértékelése</span>
+                        <span class="section-badge" id="yesterdayDateBadge">1. Nap (0 előzmény)</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#94a3b8; margin-top:0.25rem;">
+                        A rendszer minden nap automatikusan ellenőrzi a korábban elmentett szelvények végeredményét. A <strong>Nyert</strong> tippek zöld (<code>#D9EAD3</code>), a <strong>Veszített</strong> tippek piros (<code>#F4CCCC</code>) kiemelést kapnak.
+                    </p>
+                </div>
+                <div class="recap-summary-pills" id="yesterdaySummaryPills"></div>
+            </div>
+
+            <!-- Üres állapot (amikor 0 előzményről indulunk az 1. napon) -->
+            <div id="yesterdayEmptyState" class="empty-history-box" style="display:none;">
+                <div style="font-size:1.02rem; font-weight:800; color:#38bdf8; margin-bottom:0.35rem;">
+                    🌱 Tiszta Indulás (0 előzmény — 1. Nap) • Kezdő Bankroll: <span id="emptyStateBankrollText">5 000 Ft</span>
+                </div>
+                <div style="font-size:0.85rem; color:#cbd5e1; max-width:820px; margin:0 auto;">
+                    Minden korábbi demó előzmény törölve lett. A mai/holnapi napra lent legenerált szelvényeket a rendszer <strong>automatikusan elmentette</strong>. Amikor a mérkőzések lezárulnak (vagy pár nap múlva újra megnyitod az oldalt), a program automatikusan lekéri a hivatalos végeredményeket, itt zöld (<code>Nyert</code>) és piros (<code>Veszített</code>) színkódolással kiértékeli őket, és frissíti az 5 000 Ft-os egyenlegedet!
+                </div>
+            </div>
+
+            <!-- Tegnapi 3 szelvény rövid eredménysávja (ha már van lezárt nap) -->
+            <div id="yesterdaySlipsMiniBar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem; margin-bottom:1rem;"></div>
+
+            <!-- Tegnapi részletes színkódolt táblázat -->
+            <div class="table-responsive" id="yesterdayTableWrap">
+                <table class="quant-table" id="yesterdayRecapTable">
+                    <thead>
+                        <tr>
+                            <th>Dátum / Idő</th>
+                            <th>Szelvény Típus</th>
+                            <th>Bajnokság</th>
+                            <th>Mérkőzés</th>
+                            <th>Fogadási Piac (HU)</th>
+                            <th>Modell Valószínűség</th>
+                            <th>Fair Odds</th>
+                            <th>Piaci Odds</th>
+                            <th>EV %</th>
+                            <th>Végeredmény</th>
+                            <th>Státusz</th>
+                        </tr>
+                    </thead>
+                    <tbody id="yesterdayRecapBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             2. NAPI STRATÉGIAI RIASZTÁS (NO-BET NAP / PASSZ VÉDELEM) & 3 SZELVÉNY
+             ================================================================== -->
+        <section class="strategy-banner active-day" id="strategyBanner">
+            <div>
+                <div class="strategy-headline" id="strategyHeadline">Betöltés...</div>
+                <div class="strategy-desc" id="strategyDesc">A Bivariate Poisson + xG modell elemzi a napi mérkőzéskínálatot...</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:0.76rem; color:#cbd5e1; text-transform:uppercase; font-weight:700;">Ténylegesen Megtett Tét / Megtakarított Keret</div>
+                <div style="font-size:1.25rem; font-weight:800; color:#fff; margin-top:0.15rem;" id="strategyBudgetStatus">500 Ft / 0 Ft</div>
+                <div style="font-size:0.75rem; color:#94a3b8;" id="correlationGuardStatus">Korreláció-védelem: max_shared_matches = 1</div>
+            </div>
+        </section>
+
+        <!-- MAI / HOLNAPI 3 WORKING FORMULA SZELVÉNY KÁRTYA -->
+        <section>
+            <div class="section-header" style="border-bottom:none; margin-bottom:0.65rem; padding-bottom:0;">
+                <div class="section-title">
+                    <span>🎯 Aktuális Optimális Szelvényjavaslatok („Working Formula” — 65% / 25% / 10%)</span>
+                    <span class="section-badge" id="todayDateBadge">Ma / Holnap</span>
+                    <span class="section-badge" id="todayStageBadge" style="background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);">📝 1. LÉPCSŐ: REGGELI TERVEZET (08:00 DRAFT)</span>
+                </div>
+                <div style="font-size:0.8rem; color:#94a3b8;">
+                    Ha egy szelvény nem éri el a matematikai küszöböt, a rendszer <strong>PASSZ (Nem ajánlott)</strong> jelzéssel megvédi a bankrollt!
+                </div>
+            </div>
+
+            <!-- 2-LÉPCSŐS NAPI AUTOMATIKA PANEL: 08:00 TERVEZET -> MECCS ELŐTT 1 ÓRÁVAL MÉLYELEMZÉS ÉS VÉGLEGESÍTÉS -->
+            <div id="twoStageWorkflowPanel" style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.92)); border:1px solid rgba(56,189,248,0.3); border-radius:12px; padding:0.9rem 1.15rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.85rem;">
+                <div style="flex:1; min-width:280px;">
+                    <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+                        <span style="font-size:0.86rem; font-weight:800; color:#f8fafc;" id="twoStageHeadline">
+                            ⏰ Kétlépcsős Napi Szelvény-protokoll: Reggel 08:00 Tervezet (Draft) ➔ Meccs előtt 1 órával Véglegesítés
+                        </span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#cbd5e1;" id="prematchCountdownText">
+                        Legkorábbi szelvény-meccs: <strong>20:00</strong> • Automatikus meccs előtti mélyelemzés (hiányzók, sérülések + piaci szorzómozgás): <strong>19:00-kor</strong>
+                    </div>
+                    <div id="prematchChangeLogBox" style="display:none; margin-top:0.5rem; padding:0.5rem 0.75rem; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; border-radius:6px; font-size:0.79rem; color:#e2e8f0;"></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="btnRunPrematchDeepAnalysis" onclick="runPrematchDeepAnalysisNow()" style="font-size:0.78rem; padding:0.45rem 0.85rem;">
+                        🔍 Meccs Előtti Mélyelemzés &amp; Véglegesítés Most
+                    </button>
+                </div>
+            </div>
+
+            <div class="slips-grid" id="todaySlipsGrid"></div>
+        </section>
+
+        <!-- ==================================================================
+             3. MAI / HOLNAPI MÉRKŐZÉSKÍNÁLAT ÉS HALADÓ BIVARIATE POISSON + xG TÁBLÁZAT
+             ================================================================== -->
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">
+                        <span>🎯 Elemzett Mérkőzések &amp; Nagy Valószínűségű Tippek</span>
+                        <span class="section-badge" id="matchesCountBadge">0 meccs</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#94a3b8; margin-top:0.25rem;">
+                        Kompakt áttekintés a mérkőzésekről a modell által számított legmagasabb valószínűségű kimenetelekkel és oddsokkal. Kattints a <strong>„8×8 Mátrix &amp; 12 Piac”</strong> gombra a részletes mutatókért (PPDA, Box érintések, Field Tilt) és kézi szorzó-felülbírálásért!
+                    </p>
+                </div>
+                <button class="btn btn-secondary" onclick="resetAllManualOdds()">
+                    ↺ Kézi Szorzók Alaphelyzetbe Állítása
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="quant-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width:115px;">Kezdés / Liga</th>
+                            <th style="min-width:185px;">Mérkőzés</th>
+                            <th style="min-width:110px;">Várható Gól (λ)</th>
+                            <th style="min-width:160px;">Legvalószínűbb Eredmények</th>
+                            <th style="min-width:270px;">Nagy Valószínűségű Tippek &amp; Oddsok (P_model)</th>
+                            <th style="min-width:130px; text-align:center;">Részletek</th>
+                        </tr>
+                    </thead>
+                    <tbody id="todayMatchesBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             4. NAPI SZELVÉNYNAPLÓ ÉS TÖBBNAPOS AUTOMATIKUS KÖVETŐ
+             ================================================================== -->
+        <section class="section-card" id="dailyHistorySection">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">
+                        <span>📅 Napi Szelvénynapló &amp; Többnapos Automatikus Követés</span>
+                        <span class="section-badge" id="historyDaysCountBadge">1 nap</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:#94a3b8; margin-top:0.25rem;">
+                        Itt láthatod időrendben az összes eddig legenerált napot és szelvényt. Ha pár nap múlva térsz vissza, a rendszer automatikusan kiértékeli a függőben lévő napokat!
+                    </p>
+                </div>
+                <button class="btn btn-secondary" onclick="evaluateAllPendingDaysNow()">
+                    ✓ Függőben Lévő Napok Kiértékelése Most (API Eredményekkel)
+                </button>
+            </div>
+            <div id="dailyHistoryContainer"></div>
+        </section>
+
+    </main>
+
+    <!-- TOAST ÉRTESÍTÉSI KONTÉNER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ======================================================================
+         MODÁLIS ABLAK 1: 8x8 BIVARIATE POISSON MÁTRIX ÉS 12 PIAC SZORZÓ SZERKESZTŐ
+         ====================================================================== -->
+    <div class="modal-backdrop" id="matrixModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 id="matrixModalTitle" style="font-size:1.2rem; font-weight:800;">Mérkőzés Részletes Bivariate Poisson Mátrix</h3>
+                    <p id="matrixModalSubtitle" style="font-size:0.82rem; color:#94a3b8; margin-top:0.2rem;"></p>
+                </div>
+                <button class="close-btn" onclick="closeModal('matrixModal')">✕</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(440px, 1fr)); gap:1.5rem;">
+                <div>
+                    <h4 style="font-size:0.95rem; font-weight:700; color:#38bdf8; margin-bottom:0.4rem;">
+                        8×8-as Pontos Eredmény Valószínűségi Mátrix (0–7 gól, Bivariate Poisson)
+                    </h4>
+                    <p style="font-size:0.76rem; color:#94a3b8; margin-bottom:0.6rem;">
+                        Sorok: Hazai gólok (0–7) | Oszlopok: Vendég gólok (0–7) | Értékek: Valószínűség (%)
+                    </p>
+                    <div id="scoreMatrixContainer" class="matrix-grid"></div>
+                </div>
+
+                <div>
+                    <h4 style="font-size:0.95rem; font-weight:700; color:#38bdf8; margin-bottom:0.4rem;">
+                        12 Fogadási Piac Kiértékelése és Kézi Szorzó Felülbírálás
+                    </h4>
+                    <p style="font-size:0.76rem; color:#94a3b8; margin-bottom:0.6rem;">
+                        Írd át bármelyik piaci szorzót a saját fogadóirodád (pl. TippmixPro) szorzójára, és a szelvények azonnal újraszámolódnak!
+                    </p>
+                    <div class="table-responsive">
+                        <table class="quant-table">
+                            <thead>
+                                <tr>
+                                    <th>Fogadási Piac</th>
+                                    <th>P_model</th>
+                                    <th>Fair Odds</th>
+                                    <th>Piaci Odds (Szerkeszthető)</th>
+                                    <th>EV %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matrixMarketsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODÁLIS ABLAK 2: BANKROLL (5 000 FT ALAP), KORRELÁCIÓ ÉS BEÁLLÍTÁSOK
+         ====================================================================== -->
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:800;">⚙️ Bankroll Kezelés, Working Formula &amp; Korreláció-Védelem</h3>
+                    <p style="font-size:0.8rem; color:#94a3b8;">A módosítások mentés után azonnal frissítik a főoldali egyenleget, a napi téteket (65% / 25% / 10%) és az Excel munkafüzetet.</p>
+                </div>
+                <button class="close-btn" onclick="closeModal('settingsModal')">✕</button>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="inpInitialBankroll">Kezdő Bankroll (Ft)</label>
+                    <input type="number" id="inpInitialBankroll" class="form-input" value="5000" step="500" min="500">
+                </div>
+                <div class="form-group">
+                    <label for="inpDailyPercent">Napi Kockáztatott Bankroll Arány (%)</label>
+                    <input type="number" id="inpDailyPercent" class="form-input" value="10" step="1" min="1" max="100">
+                </div>
+                <div class="form-group">
+                    <label for="inpMaxShared">Anti-Korrelációs Korlát (max_shared_matches)</label>
+                    <select id="inpMaxShared" class="form-input">
+                        <option value="0">0 (Teljesen külön meccsek minden szelvényen)</option>
+                        <option value="1" selected>1 (Ajánlott: legfeljebb 1 közös meccs a szelvények között)</option>
+                        <option value="2">2 (Legfeljebb 2 közös meccs engedélyezett)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inpBookmakerMargin">Alapértelmezett Bukmékeri Árrés (Margin %)</label>
+                    <input type="text" id="inpBookmakerMargin" class="form-input" value="5.5">
+                </div>
+                <div class="form-group">
+                    <label for="inpFixedBudgetToggle">Napi Keret Számítási Módja</label>
+                    <select id="inpFixedBudgetToggle" class="form-input">
+                        <option value="false">Dinamikus (% az aktuális bankrollból)</option>
+                        <option value="true">Fix napi Ft összeg</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inpFixedBudgetHuf">Fix Napi Keret (Ft, ha fix mód aktív)</label>
+                    <input type="number" id="inpFixedBudgetHuf" class="form-input" value="500" step="100">
+                </div>
+            </div>
+
+            <div style="margin-top:1.4rem; display:flex; flex-wrap:wrap; justify-content:space-between; gap:0.75rem;">
+                <button class="btn btn-danger" onclick="confirmResetToZero()">
+                    🗑️ Előzmények Törlése &amp; Újrakezdés 0-ról
+                </button>
+                <div style="display:flex; gap:0.75rem;">
+                    <button class="btn btn-secondary" onclick="closeModal('settingsModal')">Mégse</button>
+                    <button class="btn btn-primary" onclick="saveSettings()">💾 Beállítások Mentése &amp; Szelvények Újraszámolása</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODÁLIS ABLAK 3: API KULCSOK BEÁLLÍTÁSA ÉS ÉLŐ KAPCSOLAT TESZTELÉSE
+         ====================================================================== -->
+    <div class="modal-backdrop" id="apiGuideModal">
+        <div class="modal-content" style="max-width:880px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:800;">🔑 Ingyenes API Kulcsok Beállítása &amp; Élő Adatlekérés Tesztelése</h3>
+                    <p style="font-size:0.82rem; color:#94a3b8;">
+                        Add meg a megszerzett ingyenes API kulcsaidat lent, majd kattints az <strong>„API Kulcsok Mentése &amp; Élő Meccsek Lekérése”</strong> gombra!
+                    </p>
+                </div>
+                <button class="close-btn" onclick="closeModal('apiGuideModal')">✕</button>
+            </div>
+
+            <div class="form-grid" style="margin-bottom:1.1rem;">
+                <div class="form-group">
+                    <label for="inpOddsApiKey">1. THE_ODDS_API_KEY (the-odds-api.com — Élő szorzók &amp; eredmények)</label>
+                    <input type="text" id="inpOddsApiKey" class="form-input" value="5d4a4c02c56ffbb5e242a8056b7a6268" placeholder="Illeszd be a 32 karakteres The Odds API kulcsot...">
+                </div>
+                <div class="form-group">
+                    <label for="inpFootballDataKey">2. FOOTBALL_DATA_API_KEY (football-data.org — Menetrend &amp; eredmények)</label>
+                    <input type="text" id="inpFootballDataKey" class="form-input" value="b7bc2a3e65214bc88812bde8b67a2841" placeholder="Illeszd be a Football-Data.org API tokent...">
+                </div>
+                <div class="form-group">
+                    <label for="inpApiFootballKey">3. API_FOOTBALL_KEY (api-football.com — Napi meccsek &amp; statisztikák)</label>
+                    <input type="text" id="inpApiFootballKey" class="form-input" value="cf4dedb49f4d4582067816883129b24c" placeholder="Illeszd be az API-Football kulcsot...">
+                </div>
+            </div>
+
+            <!-- Élő kapcsolat teszt eredménymező -->
+            <div id="apiTestResultBox" style="display:none; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:0.9rem 1.1rem; margin-bottom:1.1rem; font-size:0.84rem;"></div>
+
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:0.75rem; margin-bottom:1.25rem;">
+                <button class="btn btn-emerald" onclick="testAndFetchLiveApisNow()">
+                    🔌 API Kulcsok Tesztelése &amp; Élő Meccsek Lekérése Most
+                </button>
+                <div style="display:flex; gap:0.75rem;">
+                    <button class="btn btn-secondary" onclick="closeModal('apiGuideModal')">Bezárás</button>
+                    <button class="btn btn-primary" onclick="saveApiKeys()">💾 API Kulcsok Mentése &amp; Frissítés</button>
+                </div>
+            </div>
+
+            <details style="background:#0f172a; border:1px solid #26334d; border-radius:10px; padding:0.85rem 1.1rem;">
+                <summary style="cursor:pointer; font-weight:700; color:#38bdf8; font-size:0.9rem;">
+                    📖 Részletes útmutató: Honnan tudsz 0 Ft-ért (bankkártya nélkül) API kulcsot kérni? (Kattints a lenyitáshoz)
+                </summary>
+                <div style="margin-top:0.85rem;">
+                    <div class="guide-step">
+                        <h4>1. The Odds API — Élő Fogadóirodai Szorzók (100% Ingyenes: havi 500 lekérés)</h4>
+                        <ol>
+                            <li>Nyisd meg a <a href="https://the-odds-api.com/" target="_blank" style="color:#38bdf8;">https://the-odds-api.com/</a> weboldalt.</li>
+                            <li>Kattints a <strong>„Get API Key”</strong> gombra, majd válaszd a <strong>Free (0$ / hó)</strong> csomagot.</li>
+                            <li>Az e-mailben kapott kulcsot másold be fent a <code>THE_ODDS_API_KEY</code> mezőbe.</li>
+                        </ol>
+                    </div>
+                    <div class="guide-step">
+                        <h4>2. Football-Data.org &amp; API-Football (Örökös Ingyenes Csomagok)</h4>
+                        <ul>
+                            <li><strong>Football-Data.org:</strong> Regisztráció a <a href="https://www.football-data.org/client/register" target="_blank" style="color:#38bdf8;">football-data.org/client/register</a> oldalon (0 Ft).</li>
+                            <li><strong>API-Football:</strong> Regisztráció a <a href="https://dashboard.api-football.com/register" target="_blank" style="color:#38bdf8;">dashboard.api-football.com/register</a> oldalon (0 Ft, napi 100 kérés).</li>
+                        </ul>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script src="../data/auto_state.js"></script>
+    <script src="/data/auto_state.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
